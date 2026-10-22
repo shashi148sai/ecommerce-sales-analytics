@@ -25,48 +25,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Global styling injection for clean corporate aesthetics
-st.markdown("""
-<style>
-    /* Metric styling */
-    div[data-testid="stMetricValue"] {
-        font-size: 1.8rem;
-        font-weight: 700;
-    }
-    /* Clean sidebar headers */
-    .sidebar-header {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #1E293B;
-        margin-bottom: 2px;
-    }
-    .sidebar-subtitle {
-        font-size: 0.8rem;
-        color: #64748B;
-        margin-bottom: 16px;
-    }
-    .badge-status {
-        background-color: #ECFDF5;
-        color: #065F46;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        display: inline-block;
-        margin-bottom: 8px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # ------------------------------------------------------------------------------
 # Sidebar Navigation & Environment Information
 # ------------------------------------------------------------------------------
-st.sidebar.markdown("<div class='sidebar-header'>⚡ SalesPulse Analytics</div>", unsafe_allow_html=True)
-st.sidebar.markdown("<div class='sidebar-subtitle'>B.Tech BDA & Cloud Computing Project</div>", unsafe_allow_html=True)
+st.sidebar.title("⚡ SalesPulse Analytics")
+st.sidebar.caption("B.Tech Capstone Project: Big Data Analytics & Cloud Computing")
 
-# Project Status Badges
+# Storage Mode Indicator
 storage_badge_text = "Local Storage (₹0 Cost)" if settings.STORAGE_MODE == "local" else f"Amazon S3 ({settings.AWS_S3_BUCKET})"
-st.sidebar.markdown(f"<div class='badge-status'>● {storage_badge_text}</div>", unsafe_allow_html=True)
+st.sidebar.success(f"● Storage: {storage_badge_text}")
 
 pages = {
     "💼 Sales Overview": p1.render_page,
@@ -80,15 +47,19 @@ pages = {
 
 selected_page = st.sidebar.radio("Navigation", list(pages.keys()), index=0)
 
-st.sidebar.markdown("---")
+st.sidebar.divider()
 st.sidebar.markdown("**System Profile:**")
 st.sidebar.text(f"Engine: PySpark 3.5\nSpark Master: {settings.SPARK_MASTER}\nCurrency: {settings.DEFAULT_CURRENCY} (GBP)")
 
 meta = load_pipeline_metadata()
 if meta:
-    st.sidebar.markdown(f"**Dataset:** `{meta.get('dataset_file')}`\n- Ingested: **{meta.get('total_records_ingested', 0):,}**\n- Throughput: **{meta.get('throughput_rows_per_second', 0):,.1f} rows/s**")
+    st.sidebar.markdown(
+        f"**Dataset:** `{meta.get('dataset_file')}`\n"
+        f"- Ingested: **{meta.get('total_records_ingested', 0):,}**\n"
+        f"- Throughput: **{meta.get('throughput_rows_per_second', 0):,.1f} rows/s**"
+    )
 
-st.sidebar.markdown("---")
+st.sidebar.divider()
 st.sidebar.caption("SalesPulse Analytics © 2026\nAcademic Project for BDA & Cloud Computing")
 
 # Render active page

@@ -1,6 +1,6 @@
 """
 SalesPulse Analytics - Dashboard Utilities and Visual Styling
-Provides currency formatting (£), KPI card styling, cached data loaders,
+Provides currency formatting (£), native KPI card rendering, cached data loaders,
 and consistent Plotly visualization palettes.
 """
 
@@ -48,7 +48,7 @@ def format_percent(value: Optional[float]) -> str:
 
 
 # ------------------------------------------------------------------------------
-# UI KPI Card Component
+# UI KPI Card Component (Streamlit Native Containers - Zero Raw HTML)
 # ------------------------------------------------------------------------------
 def render_kpi_card(
     title: str,
@@ -58,32 +58,18 @@ def render_kpi_card(
     delta_positive: bool = True
 ):
     """
-    Renders an accessible, responsive KPI card with modern typography and borders.
+    Renders an accessible, responsive KPI card using Streamlit's native bordered container
+    and metric component, guaranteeing zero HTML leakage and consistent column alignment.
     """
-    delta_color = "#10B981" if delta_positive else "#EF4444"
-    delta_html = f"<span style='color: {delta_color}; font-size: 0.85rem; font-weight: 600;'>{delta}</span>" if delta else ""
-    sub_html = f"<div style='color: #64748B; font-size: 0.8rem; margin-top: 4px;'>{subtitle}</div>" if subtitle else ""
-    
-    html = f"""
-    <div style="
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 18px 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        margin-bottom: 12px;
-    ">
-        <div style="font-size: 0.85rem; font-weight: 500; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">
-            {title}
-        </div>
-        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 8px;">
-            <span style="font-size: 1.75rem; font-weight: 700; color: #0F172A;">{value}</span>
-            {delta_html}
-        </div>
-        {sub_html}
-    </div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
+    with st.container(border=True):
+        st.metric(
+            label=title.upper(),
+            value=value,
+            delta=delta if delta else None,
+            delta_color="normal" if delta_positive else "inverse"
+        )
+        if subtitle:
+            st.caption(subtitle)
 
 
 # ------------------------------------------------------------------------------
@@ -213,26 +199,28 @@ CHART_COLORS = {
 
 
 def apply_chart_theme(fig: go.Figure, title: str = "") -> go.Figure:
-    """Applies a consistent corporate typography and layout theme to Plotly figures."""
+    """Applies a consistent corporate typography and responsive layout theme to Plotly figures."""
     fig.update_layout(
         title={
             "text": title,
-            "y": 0.95,
+            "y": 0.98,
             "x": 0.0,
             "xanchor": "left",
             "yanchor": "top",
-            "font": {"size": 16, "family": "Inter, -apple-system, sans-serif", "color": "#0F172A"}
+            "font": {"size": 15, "family": "Inter, -apple-system, sans-serif", "color": "#0F172A"}
         },
         template="plotly_white",
-        margin=dict(l=20, r=20, t=50, b=20),
+        margin=dict(l=50, r=40, t=60, b=40),
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.02,
+            y=1.03,
             xanchor="right",
-            x=1,
+            x=1.0,
             title_text=""
         ),
+        xaxis=dict(automargin=True),
+        yaxis=dict(automargin=True),
         hoverlabel=dict(
             bgcolor="#1E293B",
             font_size=13,

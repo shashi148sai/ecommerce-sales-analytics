@@ -24,7 +24,7 @@ from src.storage.storage_manager import StorageManager
 
 def render_page():
     st.title("🛡️ Data Management & Quality Auditing")
-    st.markdown("Execute data engineering pipelines, audit data health metrics, and manage local & Amazon S3 storage.")
+    st.caption("Execute data engineering pipelines, audit data health metrics, and manage local & Amazon S3 storage.")
     
     storage = StorageManager()
     quality_report = load_data_quality_report()
@@ -37,31 +37,34 @@ def render_page():
     # --------------------------------------------------------------------------
     with tab1:
         st.subheader("Run PySpark Analytics Pipeline")
-        st.markdown(
+        st.caption(
             "Execute the end-to-end Big Data pipeline: Ingestion ➔ Schema Conformance ➔ "
             "PySpark Transformations ➔ Spark SQL Aggregations ➔ Storage Replication."
         )
         
-        col_opt1, col_opt2 = st.columns(2)
-        with col_opt1:
-            dataset_option = st.radio(
-                "Select Ingestion Source:",
-                ["Default Canonical Dataset (data/raw/OnlineRetail.csv)", "Lightweight Sample (sample_retail.csv)", "Upload New CSV/XLSX"],
-                index=0
-            )
+        with st.container(border=True):
+            col_opt1, col_opt2 = st.columns(2)
+            with col_opt1:
+                dataset_option = st.radio(
+                    "Select Ingestion Source:",
+                    ["Default Canonical Dataset (data/raw/OnlineRetail.csv)", "Lightweight Sample (sample_retail.csv)", "Upload New CSV/XLSX"],
+                    index=0
+                )
+                
+            with col_opt2:
+                row_limit_opt = st.selectbox(
+                    "Execution Scale / Row Limit:",
+                    ["All Records (Full Execution)", "5,000 Rows", "25,000 Rows", "50,000 Rows"],
+                    index=0
+                )
+                
+            uploaded_file = None
+            if dataset_option == "Upload New CSV/XLSX":
+                uploaded_file = st.file_uploader("Upload Transaction File (.csv, .xlsx)", type=["csv", "xlsx"])
+                
+            run_btn = st.button("⚡ Execute Big Data Pipeline", type="primary")
             
-        with col_opt2:
-            row_limit_opt = st.selectbox(
-                "Execution Scale / Row Limit:",
-                ["All Records (Full Execution)", "5,000 Rows", "25,000 Rows", "50,000 Rows"],
-                index=0
-            )
-            
-        uploaded_file = None
-        if dataset_option == "Upload New CSV/XLSX":
-            uploaded_file = st.file_uploader("Upload Transaction File (.csv, .xlsx)", type=["csv", "xlsx"])
-            
-        if st.button("⚡ Execute Big Data Pipeline", type="primary"):
+        if run_btn:
             target_path = None
             if dataset_option == "Lightweight Sample (sample_retail.csv)":
                 target_path = settings.SAMPLE_RAW_FILE
@@ -90,8 +93,8 @@ def render_page():
                     st.error(f"❌ Pipeline execution failed: {str(e)}")
                     
         if metadata:
-            st.markdown("---")
-            st.markdown("**Latest Execution Run Profile:**")
+            st.divider()
+            st.markdown("##### ⏱️ Latest Execution Run Profile")
             st.json(metadata)
             
     # --------------------------------------------------------------------------
@@ -105,14 +108,15 @@ def render_page():
             with qc1:
                 render_kpi_card("Total Ingested", format_number(quality_report.get("total_records")))
             with qc2:
-                render_kpi_card("Clean Commercial Rows", format_number(quality_report.get("clean_records_count")))
+                render_kpi_card("Clean Sales Rows", format_number(quality_report.get("clean_records_count")))
             with qc3:
                 score = quality_report.get("data_quality_score_percent", 0.0)
-                render_kpi_card("Quality Conformance", f"{score}%", subtitle="Passed all business constraints")
+                render_kpi_card("Quality Conformance", f"{score}%", subtitle="Passed all business rules")
             with qc4:
-                render_kpi_card("Duplicate Records", format_number(quality_report.get("duplicate_records")), subtitle=f"{quality_report.get('duplicate_percentage')}% duplicates eliminated")
+                render_kpi_card("Duplicates Handled", format_number(quality_report.get("duplicate_records")), subtitle=f"{quality_report.get('duplicate_percentage')}% duplicates")
                 
-            st.markdown("### Missing Value Distribution")
+            st.divider()
+            st.markdown("##### 📊 Missing Value Distribution")
             missing_data = []
             for col_name, stats in quality_report.get("missing_values", {}).items():
                 missing_data.append({
@@ -120,20 +124,26 @@ def render_page():
                     "Null Count": stats["null_count"],
                     "Null Percentage": f"{stats['null_percentage']}%"
                 })
-            st.dataframe(pd.DataFrame(missing_data), use_container_width=True)
+            st.dataframe(pd.DataFrame(missing_data), width="stretch")
             
-            st.markdown("### Business Rule Audit & Anomaly Detection")
-            violations = quality_report.get("business_rule_violations", {})
-            st.write(f"- **Cancellations & Returns (Invoice 'C*' or Qty < 0):** {format_number(violations.get('cancellation_count'))}")
-            st.write(f"- **Negative Quantity Transactions:** {format_number(violations.get('negative_quantity_count'))}")
-            st.write(f"- **Negative Unit Price Rows (Bad debt/adjustments):** {format_number(violations.get('negative_price_count'))}")
-            st.write(f"- **Zero Unit Price Rows (Samples/Gifts):** {format_number(violations.get('zero_price_count'))}")
+            st.divider()
+            col_viol, col_card = st.columns(2)
+            with col_viol:
+                with st.container(border=True):
+                    st.markdown("##### ⚠️ Business Rule Audit")
+                    violations = quality_report.get("business_rule_violations", {})
+                    st.write(f"- **Cancellations & Returns (Invoice 'C*' or Qty < 0):** {format_number(violations.get('cancellation_count'))}")
+                    st.write(f"- **Negative Quantity Transactions:** {format_number(violations.get('negative_quantity_count'))}")
+                    st.write(f"- **Negative Unit Price Rows:** {format_number(violations.get('negative_price_count'))}")
+                    st.write(f"- **Zero Unit Price Rows:** {format_number(violations.get('zero_price_count'))}")
             
-            cardinality = quality_report.get("cardinality", {})
-            st.markdown("### Entity Cardinality")
-            st.write(f"- **Distinct Products:** {format_number(cardinality.get('distinct_products'))}")
-            st.write(f"- **Distinct Registered Customers:** {format_number(cardinality.get('distinct_customers'))}")
-            st.write(f"- **Distinct Operating Countries:** {format_number(cardinality.get('distinct_countries'))}")
+            with col_card:
+                with st.container(border=True):
+                    st.markdown("##### 🏷️ Entity Cardinality")
+                    cardinality = quality_report.get("cardinality", {})
+                    st.write(f"- **Distinct Products (StockCodes):** {format_number(cardinality.get('distinct_products'))}")
+                    st.write(f"- **Distinct Registered Customers:** {format_number(cardinality.get('distinct_customers'))}")
+                    st.write(f"- **Distinct Operating Countries:** {format_number(cardinality.get('distinct_countries'))}")
         else:
             st.info("No data quality report generated yet. Run the pipeline in Tab 1.")
             
@@ -142,7 +152,7 @@ def render_page():
     # --------------------------------------------------------------------------
     with tab3:
         st.subheader("Hybrid Storage Management (Local & Amazon S3)")
-        st.markdown(
+        st.caption(
             "SalesPulse organizes all transactional artifacts into a structured logical prefix hierarchy "
             "mirroring enterprise cloud data lake designs."
         )
@@ -160,18 +170,19 @@ def render_page():
             else:
                 st.warning(f"⚠️ S3 Status: {status['message']}")
                 
-        st.markdown("### Logical Prefix Storage Inspection")
+        st.divider()
+        st.markdown("##### 📁 Logical Prefix Storage Inspection")
         selected_cat = st.selectbox("Inspect Category Prefix:", list(StorageManager.CATEGORIES))
         
         files = storage.list_files(selected_cat)
         if files:
             file_df = pd.DataFrame(files)
-            st.dataframe(file_df, use_container_width=True)
+            st.dataframe(file_df, width="stretch")
         else:
             st.write(f"No files currently listed under prefix `{selected_cat}/`.")
             
-        st.markdown("---")
-        st.markdown("### Cloud Synchronization (₹0 Safety)")
+        st.divider()
+        st.markdown("##### ☁️ Cloud Synchronization (₹0 Safety)")
         st.caption(
             "Replicates local processed Parquet tables, analytics summaries, and JSON reports to Amazon S3. "
             "Requires approved AWS credentials. Never commits credentials to Git."

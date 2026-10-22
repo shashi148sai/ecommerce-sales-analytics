@@ -22,7 +22,7 @@ from src.dashboard.utils import (
 
 def render_page():
     st.title("📅 Temporal Sales Trends & Growth")
-    st.markdown("Examine revenue cycles, order seasonality, and growth rates across macro (monthly) and micro (hourly) timelines.")
+    st.caption("Examine revenue cycles, order seasonality, and growth rates across macro (monthly) and micro (hourly) timelines.")
     
     monthly_df = load_monthly_trends()
     daily_df = load_daily_trends()
@@ -60,12 +60,14 @@ def render_page():
         ))
         
         fig_mom.update_layout(
-            yaxis=dict(title="Revenue (£)", tickprefix="£", showgrid=True, gridcolor="#F1F5F9"),
-            yaxis2=dict(title="MoM Growth Rate (%)", overlaying="y", side="right", ticksuffix="%", showgrid=False),
-            legend=dict(x=0.01, y=1.1, orientation="h")
+            yaxis=dict(title="Revenue (£)", tickprefix="£", automargin=True, showgrid=True, gridcolor="#F1F5F9"),
+            yaxis2=dict(title="MoM Growth Rate (%)", overlaying="y", side="right", ticksuffix="%", automargin=True, showgrid=False),
+            xaxis=dict(title="", tickangle=-25, automargin=True),
+            legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1.0),
+            margin=dict(l=60, r=60, t=60, b=40)
         )
         apply_chart_theme(fig_mom, title="Monthly Revenue (£) & Month-over-Month Growth (%)")
-        st.plotly_chart(fig_mom, use_container_width=True)
+        st.plotly_chart(fig_mom, width="stretch")
         
         # Table of monthly breakdown
         st.dataframe(
@@ -77,7 +79,7 @@ def render_page():
                 "PreviousMonthRevenue": "£{:,.2f}",
                 "RevenueGrowthPercent": "{:+.2f}%"
             }),
-            use_container_width=True
+            width="stretch"
         )
         
     with tab2:
@@ -88,11 +90,12 @@ def render_page():
         min_date = daily_df["Date"].min().to_pydatetime()
         max_date = daily_df["Date"].max().to_pydatetime()
         
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            start_date = st.date_input("Start Date", min_date, min_value=min_date, max_value=max_date)
-        with col_f2:
-            end_date = st.date_input("End Date", max_date, min_value=min_date, max_value=max_date)
+        with st.container(border=True):
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                start_date = st.date_input("Start Date", min_date, min_value=min_date, max_value=max_date)
+            with col_f2:
+                end_date = st.date_input("End Date", max_date, min_value=min_date, max_value=max_date)
             
         filtered_daily = daily_df[
             (daily_df["Date"] >= pd.to_datetime(start_date)) &
@@ -107,8 +110,13 @@ def render_page():
             labels={"DailyRevenue": "Daily Revenue (£)", "Date": "Date"}
         )
         fig_daily.update_traces(line_color=CHART_COLORS["secondary"], line_width=1.8)
+        fig_daily.update_layout(
+            yaxis=dict(tickprefix="£", automargin=True),
+            xaxis=dict(automargin=True),
+            margin=dict(l=50, r=30, t=60, b=40)
+        )
         apply_chart_theme(fig_daily)
-        st.plotly_chart(fig_daily, use_container_width=True)
+        st.plotly_chart(fig_daily, width="stretch")
         
     with tab3:
         st.subheader("Weekly & Hourly Cycles")
@@ -119,7 +127,6 @@ def render_page():
         
         with c_left:
             if not dow_df.empty:
-                # Order days cleanly
                 day_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
                 dow_df["DayOrder"] = dow_df["DayOfWeek"].apply(lambda d: day_order.index(d) if d in day_order else 99)
                 dow_df = dow_df.sort_values("DayOrder")
@@ -133,9 +140,14 @@ def render_page():
                     title="Revenue by Day of Week (£)",
                     labels={"Revenue": "Revenue (£)", "DayOfWeek": "Day"}
                 )
-                fig_dow.update_layout(coloraxis_showscale=False)
+                fig_dow.update_layout(
+                    coloraxis_showscale=False,
+                    yaxis=dict(tickprefix="£", automargin=True),
+                    xaxis=dict(automargin=True),
+                    margin=dict(l=50, r=30, t=60, b=40)
+                )
                 apply_chart_theme(fig_dow)
-                st.plotly_chart(fig_dow, use_container_width=True)
+                st.plotly_chart(fig_dow, width="stretch")
                 
         with c_right:
             if not hod_df.empty:
@@ -148,8 +160,13 @@ def render_page():
                     labels={"Revenue": "Revenue (£)", "HourOfDay": "Hour of Day"}
                 )
                 fig_hod.update_traces(line_color=CHART_COLORS["primary"], line_width=2.5)
+                fig_hod.update_layout(
+                    yaxis=dict(tickprefix="£", automargin=True),
+                    xaxis=dict(automargin=True),
+                    margin=dict(l=50, r=30, t=60, b=40)
+                )
                 apply_chart_theme(fig_hod)
-                st.plotly_chart(fig_hod, use_container_width=True)
+                st.plotly_chart(fig_hod, width="stretch")
 
 
 if __name__ == "__main__":

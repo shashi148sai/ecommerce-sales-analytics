@@ -22,7 +22,7 @@ from src.analytics.benchmark import run_scalability_benchmark
 
 def render_page():
     st.title("⚡ Big Data & Cloud System Performance")
-    st.markdown("Monitor pipeline throughput, stage latency, and run controlled scalability benchmarks.")
+    st.caption("Monitor pipeline throughput, stage latency, and run controlled scalability benchmarks.")
     
     metadata = load_pipeline_metadata()
     
@@ -44,13 +44,14 @@ def render_page():
             with c1:
                 render_kpi_card("Total Ingested", format_number(rows), subtitle=metadata.get("dataset_file"))
             with c2:
-                render_kpi_card("Execution Duration", f"{total_duration:.2f}s", subtitle="End-to-end pipeline")
+                render_kpi_card("Pipeline Duration", f"{total_duration:.2f}s", subtitle="End-to-end execution")
             with c3:
-                render_kpi_card("Processing Throughput", f"{throughput:,.1f}", subtitle="Rows per second")
+                render_kpi_card("Throughput", f"{throughput:,.1f}", subtitle="Rows per second")
             with c4:
-                render_kpi_card("Spark Execution Master", metadata.get("spark_master", "local[2]"), subtitle="Local CPU Cores Allocated")
+                render_kpi_card("Spark Master", metadata.get("spark_master", "local[2]"), subtitle="Local CPU Cores Allocated")
                 
-            st.markdown("### Execution Latency by Pipeline Stage")
+            st.divider()
+            st.markdown("##### ⏱️ Execution Latency by Pipeline Stage")
             stage_data = [
                 {"Stage": "1. Data Ingestion & Schema Binding", "Seconds": timings.get("ingestion", 0.0)},
                 {"Stage": "2. Data Quality Audit & Rules Check", "Seconds": timings.get("data_quality_audit", 0.0)},
@@ -69,10 +70,15 @@ def render_page():
                 color_continuous_scale="Teal",
                 title="Duration by Pipeline Stage (Seconds)"
             )
-            fig_stages.update_layout(yaxis=dict(autorange="reversed"), coloraxis_showscale=False)
+            fig_stages.update_layout(
+                yaxis=dict(autorange="reversed", automargin=True, title=""),
+                xaxis=dict(automargin=True, title="Seconds"),
+                coloraxis_showscale=False,
+                margin=dict(l=20, r=40, t=60, b=40)
+            )
             fig_stages.update_traces(texttemplate="%{text:.2f}s", textposition="outside")
             apply_chart_theme(fig_stages)
-            st.plotly_chart(fig_stages, use_container_width=True)
+            st.plotly_chart(fig_stages, width="stretch")
             
             st.info(
                 "💡 **Big Data Architectural Note for Viva:** In this local development profile, "
@@ -88,18 +94,20 @@ def render_page():
     # --------------------------------------------------------------------------
     with tab2:
         st.subheader("Controlled Scalability Benchmark")
-        st.markdown(
+        st.caption(
             "Conduct controlled scalability experiments evaluating PySpark throughput and latency "
             "as data volume scales. *Note: Benchmark datasets are clearly labeled synthetic records generated for testing scalability.*"
         )
         
-        bench_sizes = st.multiselect(
-            "Select Benchmark Dataset Sizes (Rows):",
-            [5000, 10000, 25000, 50000, 100000],
-            default=[10000, 25000, 50000]
-        )
-        
-        if st.button("🚀 Run Scalability Benchmark Experiments"):
+        with st.container(border=True):
+            bench_sizes = st.multiselect(
+                "Select Benchmark Dataset Sizes (Rows):",
+                [5000, 10000, 25000, 50000, 100000],
+                default=[10000, 25000, 50000]
+            )
+            run_bench_btn = st.button("🚀 Run Scalability Benchmark Experiments", type="primary")
+            
+        if run_bench_btn:
             if not bench_sizes:
                 st.warning("Please select at least one dataset size.")
             else:
@@ -117,6 +125,8 @@ def render_page():
         if "bench_results" in st.session_state:
             res_df = st.session_state["bench_results"]
             
+            st.divider()
+            st.markdown("##### 📊 Benchmark Workload Results")
             st.dataframe(
                 res_df.style.format({
                     "TargetSize": "{:,}",
@@ -127,7 +137,7 @@ def render_page():
                     "TotalPipelineTimeSec": "{:.3f}s",
                     "ThroughputRowsPerSec": "{:,.1f} rows/s"
                 }),
-                use_container_width=True
+                width="stretch"
             )
             
             col_b1, col_b2 = st.columns(2)
@@ -141,8 +151,13 @@ def render_page():
                     labels={"ActualRows": "Dataset Records (Synthetic)", "TotalPipelineTimeSec": "Total Time (s)"}
                 )
                 fig_latency.update_traces(line_color=CHART_COLORS["primary"], line_width=2.5)
+                fig_latency.update_layout(
+                    yaxis=dict(automargin=True),
+                    xaxis=dict(automargin=True),
+                    margin=dict(l=50, r=30, t=60, b=40)
+                )
                 apply_chart_theme(fig_latency)
-                st.plotly_chart(fig_latency, use_container_width=True)
+                st.plotly_chart(fig_latency, width="stretch")
                 
             with col_b2:
                 fig_tp = px.bar(
@@ -154,8 +169,14 @@ def render_page():
                     title="Processing Throughput (Rows/sec)",
                     labels={"ActualRows": "Dataset Records (Synthetic)", "ThroughputRowsPerSec": "Rows/sec"}
                 )
+                fig_tp.update_layout(
+                    coloraxis_showscale=False,
+                    yaxis=dict(automargin=True),
+                    xaxis=dict(automargin=True),
+                    margin=dict(l=50, r=30, t=60, b=40)
+                )
                 apply_chart_theme(fig_tp)
-                st.plotly_chart(fig_tp, use_container_width=True)
+                st.plotly_chart(fig_tp, width="stretch")
 
 
 if __name__ == "__main__":

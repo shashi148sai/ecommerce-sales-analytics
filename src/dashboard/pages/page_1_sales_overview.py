@@ -24,7 +24,7 @@ from src.dashboard.utils import (
 
 def render_page():
     st.title("💼 Commercial Sales Overview")
-    st.markdown("High-level executive overview of e-commerce revenue, transaction volume, and operational metrics.")
+    st.caption("High-level executive overview of e-commerce revenue, transaction volume, and operational metrics.")
     
     kpis = load_kpis()
     monthly_df = load_monthly_trends()
@@ -36,7 +36,7 @@ def render_page():
         return
         
     # --------------------------------------------------------------------------
-    # Executive KPI Cards (Row 1)
+    # Executive KPI Cards (Row 1) - Streamlit Native Bordered Containers
     # --------------------------------------------------------------------------
     c1, c2, c3, c4, c5 = st.columns(5)
     
@@ -58,9 +58,7 @@ def render_page():
         render_kpi_card(
             title="Net Revenue",
             value=format_currency(kpis.get("net_revenue"), compact=True),
-            subtitle="Gross minus refunds/returns",
-            delta="Eligible Sales",
-            delta_positive=True
+            subtitle="Gross minus refunds/returns"
         )
     with c4:
         render_kpi_card(
@@ -70,17 +68,17 @@ def render_page():
         )
     with c5:
         render_kpi_card(
-            title="Average Order Value",
+            title="Avg Order Value",
             value=format_currency(kpis.get("average_order_value")),
             subtitle="Gross sales / total orders"
         )
         
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.divider()
     
     # --------------------------------------------------------------------------
     # Main Trend Chart & Top Products
     # --------------------------------------------------------------------------
-    col_left, col_right = st.columns([3, 2])
+    col_left, col_right = st.columns([1.1, 0.9])
     
     with col_left:
         st.subheader("📈 Monthly Revenue Progression")
@@ -109,12 +107,14 @@ def render_page():
             ))
             
             fig_trend.update_layout(
-                yaxis=dict(title="Revenue (£)", tickprefix="£", showgrid=True, gridcolor="#F1F5F9"),
-                yaxis2=dict(title="Orders", overlaying="y", side="right", showgrid=False),
-                legend=dict(x=0.01, y=1.1, orientation="h")
+                yaxis=dict(title="Revenue (£)", tickprefix="£", automargin=True, showgrid=True, gridcolor="#F1F5F9"),
+                yaxis2=dict(title="Order Count", overlaying="y", side="right", automargin=True, showgrid=False),
+                xaxis=dict(title="", tickangle=-30, automargin=True),
+                legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1.0),
+                margin=dict(l=60, r=60, t=60, b=45)
             )
             apply_chart_theme(fig_trend)
-            st.plotly_chart(fig_trend, use_container_width=True)
+            st.plotly_chart(fig_trend, width="stretch")
         else:
             st.info("Monthly trend data not available.")
             
@@ -122,70 +122,82 @@ def render_page():
         st.subheader("🏆 Top 5 Revenue Products")
         if not top_rev_df.empty:
             top5 = top_rev_df.head(5).copy()
-            # Truncate description for clean display
-            top5["ShortDesc"] = top5["Description"].apply(lambda x: str(x)[:22] + "..." if len(str(x)) > 25 else str(x))
+            # Truncate description cleanly for legible axes
+            top5["ShortDesc"] = top5["Description"].apply(
+                lambda x: str(x)[:24] + "..." if len(str(x)) > 26 else str(x)
+            )
             
             fig_top = px.bar(
                 top5,
                 x="TotalRevenue",
                 y="ShortDesc",
                 orientation="h",
+                text="TotalRevenue",
                 color="TotalRevenue",
                 color_continuous_scale="Blues",
-                labels={"TotalRevenue": "Revenue (£)", "ShortDesc": "Product"},
+                labels={"TotalRevenue": "Revenue (£)", "ShortDesc": ""},
                 hover_data={"Description": True, "UnitsSold": True, "TotalRevenue": ":,.2f"}
             )
+            fig_top.update_traces(
+                texttemplate="£%{x:,.0f}",
+                textposition="inside"
+            )
             fig_top.update_layout(
-                yaxis=dict(autorange="reversed"),
-                coloraxis_showscale=False
+                yaxis=dict(autorange="reversed", automargin=True, title=""),
+                xaxis=dict(title="Revenue (£)", tickprefix="£", automargin=True),
+                coloraxis_showscale=False,
+                margin=dict(l=10, r=30, t=60, b=45)
             )
             apply_chart_theme(fig_top)
-            st.plotly_chart(fig_top, use_container_width=True)
+            st.plotly_chart(fig_top, width="stretch")
         else:
             st.info("Top products data not available.")
             
     # --------------------------------------------------------------------------
     # Operational Comparison Highlights
     # --------------------------------------------------------------------------
-    st.markdown("---")
+    st.divider()
     st.subheader("⚖️ Operational Distribution and Comparisons")
     
     sc1, sc2, sc3 = st.columns(3)
     
     with sc1:
-        st.markdown("**Catalog & Reach**")
-        st.write(f"- **Distinct Products Sold:** {format_number(kpis.get('distinct_products'))}")
-        st.write(f"- **Operating Countries:** {format_number(kpis.get('operating_countries'))}")
-        st.write(f"- **Total Return Orders:** {format_number(kpis.get('return_orders_count'))}")
-        st.write(f"- **Return Units Volume:** {format_number(kpis.get('return_units_volume'))}")
+        with st.container(border=True):
+            st.markdown("##### 📦 Catalog & Reach")
+            st.write(f"- **Distinct Products Sold:** {format_number(kpis.get('distinct_products'))}")
+            st.write(f"- **Operating Countries:** {format_number(kpis.get('operating_countries'))}")
+            st.write(f"- **Total Return Orders:** {format_number(kpis.get('return_orders_count'))}")
+            st.write(f"- **Return Units Volume:** {format_number(kpis.get('return_units_volume'))}")
         
     with sc2:
-        st.markdown("**Customer Checkout Mix**")
-        registered_count = repeat_stats.get("total_registered_customers", 0)
-        guest_rev = repeat_stats.get("guest_revenue", 0.0)
-        repeat_rev_share = repeat_stats.get("repeat_revenue_share_percent", 0.0)
-        
-        st.write(f"- **Active Registered Buyers:** {format_number(registered_count)}")
-        st.write(f"- **Repeat Customer Revenue Share:** {repeat_rev_share:.1f}%")
-        st.write(f"- **Guest (Unregistered) Orders:** {format_number(repeat_stats.get('guest_orders_count', 0))}")
-        st.write(f"- **Guest Checkout Revenue:** {format_currency(guest_rev)}")
+        with st.container(border=True):
+            st.markdown("##### 👥 Customer Checkout Mix")
+            registered_count = repeat_stats.get("total_registered_customers", 0)
+            guest_rev = repeat_stats.get("guest_revenue", 0.0)
+            repeat_rev_share = repeat_stats.get("repeat_revenue_share_percent", 0.0)
+            
+            st.write(f"- **Active Registered Buyers:** {format_number(registered_count)}")
+            st.write(f"- **Repeat Customer Revenue Share:** {repeat_rev_share:.1f}%")
+            st.write(f"- **Guest (Unregistered) Orders:** {format_number(repeat_stats.get('guest_orders_count', 0))}")
+            st.write(f"- **Guest Checkout Revenue:** {format_currency(guest_rev)}")
         
     with sc3:
-        st.markdown("**Dataset & Pipeline Governance**")
-        st.write("- **Primary Currency:** GBP (£)")
-        st.write("- **Source:** UCI Online Retail (Canonical)")
-        st.write("- **Cost Profile:** ₹0 Out-of-Pocket Local Execution")
-        st.write("- **Profit Claim:** *None (COGS absent in dataset)*")
-        
-        # Download KPI summary CSV
-        kpi_df = pd.DataFrame([kpis])
-        csv_bytes = kpi_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="📥 Download Executive KPI Summary (CSV)",
-            data=csv_bytes,
-            file_name="salespulse_executive_kpis.csv",
-            mime="text/csv"
-        )
+        with st.container(border=True):
+            st.markdown("##### 🛡️ Governance & Policy")
+            st.write("- **Primary Currency:** GBP (£)")
+            st.write("- **Source:** UCI Online Retail (Canonical)")
+            st.write("- **Cost Profile:** ₹0 Out-of-Pocket Local Execution")
+            st.write("- **Profit Claim:** *None (COGS absent in dataset)*")
+            
+            # Download KPI summary CSV
+            kpi_df = pd.DataFrame([kpis])
+            csv_bytes = kpi_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Download Executive KPI Summary (CSV)",
+                data=csv_bytes,
+                file_name="salespulse_executive_kpis.csv",
+                mime="text/csv"
+            )
 
 
 if __name__ == "__main__":

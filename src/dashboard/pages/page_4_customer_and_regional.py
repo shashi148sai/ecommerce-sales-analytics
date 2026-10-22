@@ -21,7 +21,7 @@ from src.dashboard.utils import (
 
 def render_page():
     st.title("🌍 Customer and Regional Analytics")
-    st.markdown("Examine geographic revenue concentration and analyze customer loyalty and repeat purchasing patterns.")
+    st.caption("Examine geographic revenue concentration and analyze customer loyalty and repeat purchasing patterns.")
     
     country_df = load_country_revenue()
     repeat_stats = load_repeat_customers()
@@ -51,27 +51,34 @@ def render_page():
         with c3:
             render_kpi_card("International Revenue", format_currency(intl_rev, compact=True), subtitle=f"{format_percent((intl_rev/total_rev)*100)} of total")
             
-        col_chart, col_intl = st.columns([3, 2])
+        st.divider()
+        col_chart, col_intl = st.columns([1.2, 0.8])
         
         with col_chart:
-            # Choropleth or Bar of Top 10 Countries
             top_countries = country_df.head(10).copy()
             fig_country = px.bar(
                 top_countries,
                 x="TotalRevenue",
                 y="Country",
                 orientation="h",
+                text="TotalRevenue",
                 color="TotalRevenue",
                 color_continuous_scale="Blues",
                 title="Top 10 Countries by Revenue (£)",
-                labels={"TotalRevenue": "Revenue (£)", "Country": "Country"}
+                labels={"TotalRevenue": "Revenue (£)", "Country": ""}
             )
-            fig_country.update_layout(yaxis=dict(autorange="reversed"), coloraxis_showscale=False)
+            fig_country.update_traces(texttemplate="£%{x:,.0f}", textposition="inside")
+            fig_country.update_layout(
+                yaxis=dict(autorange="reversed", automargin=True, title=""),
+                xaxis=dict(title="Revenue (£)", tickprefix="£", automargin=True),
+                coloraxis_showscale=False,
+                margin=dict(l=20, r=30, t=60, b=40)
+            )
             apply_chart_theme(fig_country)
-            st.plotly_chart(fig_country, use_container_width=True)
+            st.plotly_chart(fig_country, width="stretch")
             
         with col_intl:
-            st.markdown("**Top International Markets (Excl. UK)**")
+            st.markdown("##### 🌐 Top International Markets")
             top_intl = intl_rows.head(8).copy()
             st.dataframe(
                 top_intl[["Country", "TotalRevenue", "OrderCount", "CountryAOV"]].style.format({
@@ -79,10 +86,10 @@ def render_page():
                     "OrderCount": "{:,}",
                     "CountryAOV": "£{:.2f}"
                 }),
-                use_container_width=True
+                width="stretch"
             )
             
-        st.markdown("---")
+        st.divider()
         st.subheader("All Countries Summary Table")
         st.dataframe(
             country_df.style.format({
@@ -92,7 +99,7 @@ def render_page():
                 "UnitsSold": "{:,}",
                 "CountryAOV": "£{:.2f}"
             }),
-            use_container_width=True
+            width="stretch"
         )
         
     with tab2:
@@ -109,7 +116,7 @@ def render_page():
             with rc4:
                 render_kpi_card("Repeat Revenue Share", f"{repeat_stats.get('repeat_revenue_share_percent', 0.0):.1f}%", subtitle="Of registered customer revenue")
                 
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.divider()
             
             # Pie Chart of Buyer Distribution
             col_p1, col_p2 = st.columns(2)
@@ -127,8 +134,9 @@ def render_page():
                     color_discrete_sequence=[CHART_COLORS["primary"], CHART_COLORS["accent"]],
                     title="Customer Frequency Breakdown"
                 )
+                fig_pie.update_layout(margin=dict(l=30, r=30, t=60, b=30))
                 apply_chart_theme(fig_pie)
-                st.plotly_chart(fig_pie, use_container_width=True)
+                st.plotly_chart(fig_pie, width="stretch")
                 
             with col_p2:
                 rev_pie = pd.DataFrame({
@@ -146,8 +154,9 @@ def render_page():
                     color_discrete_sequence=[CHART_COLORS["primary"], CHART_COLORS["accent"], CHART_COLORS["slate"]],
                     title="Revenue Contribution by Checkout Type"
                 )
+                fig_rev_pie.update_layout(margin=dict(l=30, r=30, t=60, b=30))
                 apply_chart_theme(fig_rev_pie)
-                st.plotly_chart(fig_rev_pie, use_container_width=True)
+                st.plotly_chart(fig_rev_pie, width="stretch")
         else:
             st.info("Repeat customer analysis data not available.")
 

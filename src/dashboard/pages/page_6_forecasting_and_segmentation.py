@@ -23,7 +23,7 @@ from src.analytics.advanced import perform_sales_forecasting, compute_rfm_segmen
 
 def render_page():
     st.title("🔮 Advanced Analytics: Forecasting & Segmentation")
-    st.markdown("Machine learning algorithms applied to commercial transaction logs: predictive revenue forecasting and behavioral RFM clustering.")
+    st.caption("Machine learning algorithms applied to commercial transaction logs: predictive revenue forecasting and behavioral RFM clustering.")
     
     daily_df = load_daily_trends()
     sales_df = load_cleaned_sales_sample(limit=50000)
@@ -35,7 +35,7 @@ def render_page():
     # --------------------------------------------------------------------------
     with tab1:
         st.subheader("Time-Series Sales Projection with Historical Hold-Out Validation")
-        st.markdown(
+        st.caption(
             "Predicts future daily sales volume using lagged temporal regression and weekly cycles. "
             "Model generalizability is validated against a chronologically separated historical test set."
         )
@@ -44,11 +44,12 @@ def render_page():
             st.warning("⚠️ Daily sales history is not available. Please run the pipeline first.")
             return
             
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            forecast_horizon = st.slider("Forecast Horizon (Days)", min_value=7, max_value=60, value=30, step=7)
-        with col_f2:
-            test_split = st.select_slider("Historical Hold-out Test Proportion", options=[0.15, 0.20, 0.25], value=0.20)
+        with st.container(border=True):
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                forecast_horizon = st.slider("Forecast Horizon (Days)", min_value=7, max_value=60, value=30, step=7)
+            with col_f2:
+                test_split = st.select_slider("Historical Hold-out Test Proportion", options=[0.15, 0.20, 0.25], value=0.20)
             
         with st.spinner("Training time-series forecasting model..."):
             forecast_results = perform_sales_forecasting(
@@ -62,14 +63,16 @@ def render_page():
         # Display validation metrics
         mc1, mc2, mc3, mc4 = st.columns(4)
         with mc1:
-            render_kpi_card("Mean Absolute Error (MAE)", format_currency(metrics["MAE"]), subtitle="On held-out historical data")
+            render_kpi_card("Mean Absolute Error", format_currency(metrics["MAE"]), subtitle="Hold-out historical test")
         with mc2:
-            render_kpi_card("Root Mean Sq Error (RMSE)", format_currency(metrics["RMSE"]), subtitle="Penalty for large variances")
+            render_kpi_card("Root Mean Sq Error", format_currency(metrics["RMSE"]), subtitle="Hold-out test penalty")
         with mc3:
             render_kpi_card("MAPE Accuracy", f"{metrics['MAPE_percent']:.1f}%", subtitle="Mean absolute % error")
         with mc4:
             render_kpi_card("Hold-out Test Window", f"{metrics['holdout_test_days']} Days", subtitle=f"Trained on {metrics['train_days']} days")
             
+        st.divider()
+        
         # Plot Historical vs Hold-out Actuals vs Forecast
         history_df = pd.DataFrame(forecast_results["history"])
         eval_df = pd.DataFrame(forecast_results["holdout_evaluation"])
@@ -121,11 +124,13 @@ def render_page():
         ))
         
         fig.update_layout(
-            yaxis=dict(title="Daily Revenue (£)", tickprefix="£", showgrid=True, gridcolor="#F1F5F9"),
-            xaxis=dict(title="Date")
+            yaxis=dict(title="Daily Revenue (£)", tickprefix="£", automargin=True, showgrid=True, gridcolor="#F1F5F9"),
+            xaxis=dict(title="Date", automargin=True),
+            legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1.0),
+            margin=dict(l=60, r=40, t=60, b=40)
         )
         apply_chart_theme(fig, title=f"Revenue Actuals, Hold-Out Validation, and {forecast_horizon}-Day Projection")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         # Download forecast CSV
         csv_forecast = future_df.to_csv(index=False).encode("utf-8")
@@ -136,7 +141,7 @@ def render_page():
     # --------------------------------------------------------------------------
     with tab2:
         st.subheader("RFM Customer Behavioral Segmentation (K-Means)")
-        st.markdown(
+        st.caption(
             "Segments registered customers across three quantitative dimensions: "
             "**Recency** (days since last purchase), **Frequency** (total distinct orders), "
             "and **Monetary** (aggregate spend in £)."
@@ -146,17 +151,14 @@ def render_page():
             st.warning("⚠️ Cleaned sales data is unavailable for RFM segmentation.")
             return
             
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
+        with st.container(border=True):
             clusters_count = st.slider("Select Number of Customer Clusters (k)", min_value=3, max_value=5, value=4)
-        with col_c2:
-            st.write("")
             
         with st.spinner("Computing customer RFM vectors and fitting K-Means..."):
             rfm_df, summary_df = compute_rfm_segmentation(sales_df, n_clusters=clusters_count)
             
         # Display Segment Summary Cards
-        st.markdown("### Segment Overview and Commercial Impact")
+        st.markdown("##### 👥 Segment Overview and Commercial Impact")
         st.dataframe(
             summary_df.style.format({
                 "CustomerCount": "{:,}",
@@ -165,9 +167,10 @@ def render_page():
                 "AvgMonetary": "£{:,.2f}",
                 "TotalRevenue": "£{:,.2f}"
             }),
-            use_container_width=True
+            width="stretch"
         )
         
+        st.divider()
         # Scatter Plot of Frequency vs Monetary colored by Segment
         fig_rfm = px.scatter(
             rfm_df,
@@ -181,8 +184,13 @@ def render_page():
             labels={"Recency": "Recency (Days since last purchase)", "Monetary": "Monetary Spend (£)"},
             log_y=True
         )
+        fig_rfm.update_layout(
+            yaxis=dict(tickprefix="£", automargin=True),
+            xaxis=dict(automargin=True),
+            margin=dict(l=60, r=40, t=60, b=40)
+        )
         apply_chart_theme(fig_rfm)
-        st.plotly_chart(fig_rfm, use_container_width=True)
+        st.plotly_chart(fig_rfm, width="stretch")
         
         # Download RFM table
         csv_rfm = rfm_df.to_csv(index=False).encode("utf-8")
