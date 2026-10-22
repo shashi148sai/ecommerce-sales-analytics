@@ -1,0 +1,43 @@
+# Python virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment secrets and credentials
+.env
+*.pem
+*.key
+credentials
+aws_credentials.json
+
+# Spark temporary and metadata files
+metastore_db/
+derby.log
+checkpoint/
+spark-warehouse/
+
+# Local data files (preserve directory structure with .gitkeep)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/analytics/*
+!data/analytics/.gitkeep
+data/reports/*
+!data/reports/.gitkeep
+data/metadata/*
+!data/metadata/.gitkeep
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
