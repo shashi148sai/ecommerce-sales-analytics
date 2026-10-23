@@ -80,3 +80,21 @@ def test_data_loaders_integration():
     if not top_rev.empty:
         assert "StockCode" in top_rev.columns
         assert "TotalRevenue" in top_rev.columns
+
+
+def test_extract_category():
+    """Verifies SKU category parsing for consumer shopping and retail items."""
+    from src.dashboard.pages.page_2_product_analytics import extract_category
+    assert extract_category("CLO-BLOUSE") == "Clothing"
+    assert extract_category("ACC-JEWELRY") == "Accessories"
+    assert extract_category("FOO-SANDALS") == "Footwear"
+    assert extract_category("OUT-COAT") == "Outerwear"
+    assert extract_category("85123A") == "General Merchandise"
+    assert extract_category(None) == "General Merchandise"
+
+
+def test_format_currency_usd():
+    """Verifies that USD ($) presentation is correctly supported."""
+    assert format_currency(1234.56, override_symbol="$", override_rate=1.0) == "$1,234.56"
+    assert format_currency(1_500_000, compact=True, override_symbol="$", override_rate=1.0) == "$1.50M"
+

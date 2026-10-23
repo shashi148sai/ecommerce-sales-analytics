@@ -32,44 +32,68 @@ def render_page():
             col_c1, col_c2 = st.columns(2)
             
             with col_c1:
+                cur_mode_val = st.session_state.get("currency_mode", "INR (₹)")
+                c_idx = 0
+                if cur_mode_val.startswith("USD"):
+                    c_idx = 1
+                elif cur_mode_val.startswith("GBP"):
+                    c_idx = 2
+                    
                 curr_option = st.radio(
                     "Display Currency Presentation:",
-                    options=["INR (₹) - Indian Rupees (Default)", "GBP (£) - British Pounds (Original Source)"],
-                    index=0 if st.session_state.get("currency_mode", "INR (₹)").startswith("INR") else 1,
+                    options=["INR (₹) - Indian Rupees (Default)", "USD ($) - US Dollars", "GBP (£) - British Pounds"],
+                    index=c_idx,
                     help="All dashboard KPI cards, charts, and table summaries adapt to this selection."
                 )
                 
                 if curr_option.startswith("INR"):
                     st.session_state["currency_mode"] = "INR (₹)"
                     st.session_state["active_currency_symbol"] = "₹"
+                elif curr_option.startswith("USD"):
+                    st.session_state["currency_mode"] = "USD ($)"
+                    st.session_state["active_currency_symbol"] = "$"
                 else:
                     st.session_state["currency_mode"] = "GBP (£)"
                     st.session_state["active_currency_symbol"] = "£"
                     
             with col_c2:
-                custom_rate = st.number_input(
-                    "Reference Exchange Rate (1 GBP in ₹):",
-                    min_value=1.0,
-                    max_value=500.0,
-                    value=float(st.session_state.get("inr_conversion_rate", settings.DEFAULT_GBP_TO_INR_RATE)),
-                    step=0.5,
-                    format="%.2f",
-                    help="Documented reference rate used for currency conversion without requiring paid external FX APIs."
-                )
-                st.session_state["inr_conversion_rate"] = custom_rate
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
+                    custom_usd = st.number_input(
+                        "Reference Rate (1 USD in ₹):",
+                        min_value=1.0,
+                        max_value=200.0,
+                        value=float(st.session_state.get("usd_conversion_rate", getattr(settings, "DEFAULT_USD_TO_INR_RATE", 84.00))),
+                        step=0.5,
+                        format="%.2f",
+                        help="Exchange rate for USD-denominated transaction datasets."
+                    )
+                    st.session_state["usd_conversion_rate"] = custom_usd
+                with col_r2:
+                    custom_rate = st.number_input(
+                        "Reference Rate (1 GBP in ₹):",
+                        min_value=1.0,
+                        max_value=500.0,
+                        value=float(st.session_state.get("inr_conversion_rate", settings.DEFAULT_GBP_TO_INR_RATE)),
+                        step=0.5,
+                        format="%.2f",
+                        help="Exchange rate for British pound datasets."
+                    )
+                    st.session_state["inr_conversion_rate"] = custom_rate
                 
             st.divider()
             
             # Sourced Disclosure
-            src_curr = st.session_state.get("dataset_source_currency", "GBP")
+            src_curr = st.session_state.get("dataset_source_currency", "USD")
+            active_rate = custom_usd if src_curr == "USD" else custom_rate
             st.info(
                 f"**Currency Policy Disclosure:**\n\n"
                 f"- **Active Presentation Currency:** `{st.session_state['currency_mode']}`\n"
                 f"- **Dataset Source Currency:** `{src_curr}`\n"
-                f"- **Configured Exchange Rate:** `1 GBP = ₹{custom_rate:.2f}` (Reference Date: {settings.REFERENCE_RATE_DATE})\n"
-                f"- **Conversion Methodology:** When source is GBP and presentation is INR, prices and totals are scaled by ₹{custom_rate:.2f}. "
+                f"- **Active Exchange Rate:** `1 {src_curr} = ₹{active_rate:.2f}` (Reference Date: {settings.REFERENCE_RATE_DATE})\n"
+                f"- **Conversion Methodology:** When presentation is INR, source figures are converted via fixed reference rates. "
                 f"If the dataset is already native INR, no conversion multiplier is applied. "
-                f"This fixed reference rate preserves ₹0 out-of-pocket costs by avoiding paid live currency APIs."
+                f"This transparent fixed reference rate preserves ₹0 out-of-pocket costs by avoiding paid live currency APIs."
             )
             
         st.divider()

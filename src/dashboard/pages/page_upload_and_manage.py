@@ -205,29 +205,50 @@ def render_page():
         # ----------------------------------------------------------------------
         elif input_method.startswith("🧪"):
             st.markdown("##### Pre-Packaged Sample Data")
-            st.caption("Use the included e-commerce retail dataset to evaluate dashboard charts immediately.")
+            st.caption("Select an included e-commerce dataset to explore and evaluate dashboard analytics immediately.")
             
             sample_type = st.radio(
-                "Choose sample scale:",
-                ["Lightweight Validation Sample (sample_retail.csv - Fast)", "Canonical UCI Online Retail (OnlineRetail.csv - 541k Rows)"],
+                "Choose dataset to explore:",
+                [
+                    "🛍️ Consumer Shopping Trends (shopping.csv - 3,900 Records)",
+                    "🛒 Canonical UCI Online Retail (OnlineRetail.csv - 541k Rows)",
+                    "⚡ Lightweight Retail Sample (sample_retail.csv - 500 Rows)"
+                ],
                 index=0
             )
             
-            target_path = settings.SAMPLE_RAW_FILE if "sample_retail.csv" in sample_type else settings.DEFAULT_RAW_FILE
+            if "shopping.csv" in sample_type:
+                target_path = getattr(settings, "SAMPLE_SHOPPING_FILE", settings.RAW_DATA_DIR / "shopping.csv")
+                sample_name = "shopping.csv"
+                curr_type = "USD"
+                ds_type = "shopping"
+                load_limit = None
+            elif "OnlineRetail.csv" in sample_type:
+                target_path = settings.DEFAULT_RAW_FILE
+                sample_name = "OnlineRetail.csv"
+                curr_type = "GBP"
+                ds_type = "canonical"
+                load_limit = 25000
+            else:
+                target_path = settings.SAMPLE_RAW_FILE
+                sample_name = "sample_retail.csv"
+                curr_type = "GBP"
+                ds_type = "sample"
+                load_limit = 5000
             
             if st.button("Load Selected Sample Data", type="primary"):
                 if target_path.exists():
                     try:
-                        parsed_df = pd.read_csv(target_path, nrows=5000 if "sample_retail" in target_path.name else 25000, dtype=str)
+                        parsed_df = pd.read_csv(target_path, nrows=load_limit, dtype=str)
                         parsed_meta = {
-                            "filename": target_path.name,
-                            "format": "Canonical UCI Sample",
+                            "filename": sample_name,
+                            "format": "Pre-Packaged Dataset",
                             "rows": len(parsed_df),
                             "columns": len(parsed_df.columns),
                             "source_path": str(target_path)
                         }
-                        st.session_state["active_dataset_type"] = "sample"
-                        st.session_state["dataset_source_currency"] = "GBP"
+                        st.session_state["active_dataset_type"] = ds_type
+                        st.session_state["dataset_source_currency"] = curr_type
                     except Exception as e:
                         error_msg = f"Failed to load sample data: {str(e)}"
                 else:
@@ -459,6 +480,8 @@ def render_page():
                 try:
                     st.write("1️⃣ Normalizing dataset headers and applying field mappings...")
                     norm_df, norm_summary = normalize_pandas_dataframe(df, user_mapping)
+                    if "detected_currency" in norm_summary:
+                        st.session_state["dataset_source_currency"] = norm_summary["detected_currency"]
                     time.sleep(0.4)
                     
                     st.write("2️⃣ Segregating returns and calculating line-item sales totals...")

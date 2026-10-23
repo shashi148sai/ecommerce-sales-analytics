@@ -19,6 +19,20 @@ from src.dashboard.utils import (
 )
 
 
+def extract_category(code_str: str) -> str:
+    """Extracts human-readable product category from StockCode prefix or SKU."""
+    prefix_map = {
+        "CLO": "Clothing",
+        "ACC": "Accessories",
+        "FOO": "Footwear",
+        "OUT": "Outerwear"
+    }
+    if isinstance(code_str, str) and "-" in code_str:
+        p = code_str.split("-")[0].upper()
+        return prefix_map.get(p, p)
+    return "General Merchandise"
+
+
 def render_page():
     st.title("📦 Product Insights & Catalog Performance")
     st.caption("Detailed breakdown of catalog performance, ranking bestsellers by revenue, volume, and pricing bands.")
@@ -40,11 +54,21 @@ def render_page():
         
     symbol, code, rate = get_active_currency_config()
     
+    # Assign extracted categories
+    top_rev_df["Category"] = top_rev_df["StockCode"].apply(extract_category)
+    top_qty_df["Category"] = top_qty_df["StockCode"].apply(extract_category)
+    has_categories = top_rev_df["Category"].nunique() > 1
+    
     # Sample Data Banner Disclosure
     if st.session_state.get("active_dataset_type") == "sample":
         st.info("🧪 **Sample Dataset Active:** Showing product catalog performance for the included sample dataset.")
         
-    tab1, tab2, tab3 = st.tabs(["💰 Highest Revenue Products", "📦 Top Selling by Volume", "🔍 Product Lookup & Search"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "💰 Highest Revenue Products",
+        "📦 Top Selling by Volume",
+        "🏷️ Department & Category Breakdown",
+        "🔍 Product Lookup & Search"
+    ])
     
     with tab1:
         st.subheader("Top Revenue Drivers")
@@ -57,9 +81,15 @@ def render_page():
             with col_s2:
                 show_data = st.checkbox("Show Table View", value=True, key="rev_table_chk")
             with col_s3:
-                st.caption(f"Active Valuation: `{code} ({symbol})` | Sorted by Total Revenue")
+                if has_categories:
+                    cat_options = ["All Categories"] + sorted(top_rev_df["Category"].unique().tolist())
+                    selected_cat_filter = st.selectbox("Filter Category:", cat_options, index=0, key="cat_rev_filter")
+                else:
+                    selected_cat_filter = "All Categories"
+                    st.caption(f"Active Valuation: `{code} ({symbol})` | Sorted by Total Revenue")
             
-        display_df = top_rev_df.head(top_n).copy()
+        pool_rev = top_rev_df if selected_cat_filter == "All Categories" else top_rev_df[top_rev_df["Category"] == selected_cat_filter]
+        display_df = pool_rev.head(top_n).copy()
         display_df["ScaledRevenue"] = display_df["TotalRevenue"] * rate
         display_df["ScaledAvgUnitPrice"] = display_df["AvgUnitPrice"] * rate
         display_df["ShortDesc"] = display_df["Description"].apply(
@@ -74,7 +104,7 @@ def render_page():
             color="ScaledRevenue",
             color_continuous_scale="Viridis",
             labels={"ScaledRevenue": f"Total Revenue ({symbol})", "ShortDesc": ""},
-            title=f"Top {top_n} Products by Total Revenue ({symbol})"
+            title=f"Top {len(display_df)} Products by Total Revenue ({symbol})" + (f" — {selected_cat_filter}" if selected_cat_filter != "All Categories" else "")
         )
         fig.update_traces(texttemplate=f"{symbol}%{{x:,.0f}}", textposition="inside")
         fig.update_layout(
@@ -87,8 +117,9 @@ def render_page():
         st.plotly_chart(fig, use_container_width=True)
         
         if show_data:
+            show_cols = ["StockCode", "Description", "Category", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"] if has_categories else ["StockCode", "Description", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"]
             st.dataframe(
-                display_df[["StockCode", "Description", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"]].style.format({
+                display_df[show_cols].style.format({
                     "ScaledRevenue": f"{symbol}{{:,.2f}}",
                     "UnitsSold": "{:,}",
                     "OrderCount": "{:,}",
@@ -109,9 +140,15 @@ def render_page():
             with col_q1:
                 top_n_qty = st.slider("Display Count", min_value=5, max_value=25, value=10, key="qty_slider")
             with col_q2:
-                st.caption("Sorted by physical units sold across all completed transactions")
+                if has_categories:
+                    cat_options_qty = ["All Categories"] + sorted(top_qty_df["Category"].unique().tolist())
+                    selected_cat_qty = st.selectbox("Filter Category:", cat_options_qty, index=0, key="cat_qty_filter")
+                else:
+                    selected_cat_qty = "All Categories"
+                    st.caption("Sorted by physical units sold across all completed transactions")
             
-        display_qty_df = top_qty_df.head(top_n_qty).copy()
+        pool_qty = top_qty_df if selected_cat_qty == "All Categories" else top_qty_df[top_qty_df["Category"] == selected_cat_qty]
+        display_qty_df = pool_qty.head(top_n_qty).copy()
         display_qty_df["ShortDesc"] = display_qty_df["Description"].apply(
             lambda x: str(x)[:36] + "..." if len(str(x)) > 38 else str(x)
         )
@@ -124,7 +161,7 @@ def render_page():
             color="UnitsSold",
             color_continuous_scale="Teal",
             labels={"UnitsSold": "Units Sold", "ShortDesc": ""},
-            title=f"Top {top_n_qty} Products by Physical Units Sold"
+            title=f"Top {len(display_qty_df)} Products by Physical Units Sold" + (f" — {selected_cat_qty}" if selected_cat_qty != "All Categories" else "")
         )
         fig_qty.update_traces(texttemplate="%{x:,}", textposition="inside")
         fig_qty.update_layout(
@@ -135,8 +172,77 @@ def render_page():
         )
         apply_chart_theme(fig_qty)
         st.plotly_chart(fig_qty, use_container_width=True)
-            
+
     with tab3:
+        st.subheader("Department & Category Breakdown")
+        st.caption("Aggregates catalog performance across product departments to evaluate product mix and merchandise share.")
+        
+        if has_categories:
+            cat_summary = (
+                top_rev_df.groupby("Category")
+                .agg(
+                    TotalRevenue=("TotalRevenue", "sum"),
+                    UnitsSold=("UnitsSold", "sum"),
+                    ProductCount=("StockCode", "count"),
+                    AvgItemPrice=("AvgUnitPrice", "mean")
+                )
+                .reset_index()
+                .sort_values("TotalRevenue", ascending=False)
+            )
+            cat_summary["ScaledRevenue"] = cat_summary["TotalRevenue"] * rate
+            cat_summary["ScaledAvgPrice"] = cat_summary["AvgItemPrice"] * rate
+            
+            top_cat_row = cat_summary.iloc[0]
+            total_cat_rev = cat_summary["ScaledRevenue"].sum()
+            
+            ck1, ck2, ck3, ck4 = st.columns(4)
+            with ck1:
+                render_kpi_card("Active Categories", format_number(len(cat_summary)), subtitle="Distinct departments")
+            with ck2:
+                render_kpi_card("Top Category", str(top_cat_row["Category"]), subtitle=f"{(top_cat_row['ScaledRevenue']/total_cat_rev*100):.1f}% of catalog revenue")
+            with ck3:
+                render_kpi_card(f"Top Dept Revenue ({symbol})", format_currency(top_cat_row["TotalRevenue"], compact=True), subtitle=f"{int(top_cat_row['UnitsSold']):,} units")
+            with ck4:
+                render_kpi_card("Total Catalog Units", format_number(int(cat_summary["UnitsSold"].sum())), subtitle="Across top SKUs")
+                
+            st.divider()
+            
+            col_cat_pie, col_cat_tbl = st.columns([1, 1])
+            with col_cat_pie:
+                fig_cat = px.pie(
+                    cat_summary,
+                    names="Category",
+                    values="ScaledRevenue",
+                    hole=0.45,
+                    color_discrete_sequence=[CHART_COLORS["primary"], CHART_COLORS["accent_teal"], CHART_COLORS["accent_purple"], CHART_COLORS["warning"], CHART_COLORS["info"]],
+                    title=f"Revenue Distribution by Department ({symbol})"
+                )
+                fig_cat.update_traces(textinfo="percent+label")
+                apply_chart_theme(fig_cat)
+                st.plotly_chart(fig_cat, use_container_width=True)
+                
+            with col_cat_tbl:
+                st.markdown("##### 📊 Department Sales Summary")
+                st.dataframe(
+                    cat_summary[["Category", "ScaledRevenue", "UnitsSold", "ProductCount", "ScaledAvgPrice"]].style.format({
+                        "ScaledRevenue": f"{symbol}{{:,.2f}}",
+                        "UnitsSold": "{:,}",
+                        "ProductCount": "{:,}",
+                        "ScaledAvgPrice": f"{symbol}{{:,.2f}}"
+                    }),
+                    use_container_width=True
+                )
+                
+                cat_csv = cat_summary.to_csv(index=False).encode("utf-8")
+                st.download_button("📥 Download Department Breakdown (CSV)", cat_csv, "department_sales_breakdown.csv", "text/csv")
+        else:
+            with st.container(border=True):
+                st.info(
+                    "💡 **Single Department Catalog:** Current catalog items do not have distinct category prefixes. "
+                    "Department breakdown activates automatically when dataset contains category fields or prefixed item codes (e.g., `shopping.csv`)."
+                )
+            
+    with tab4:
         st.subheader("Interactive Product Catalog Explorer")
         st.caption("Search, filter, and drill into individual catalog SKUs by description, unit price, and velocity.")
         

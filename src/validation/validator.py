@@ -41,7 +41,10 @@ def validate_schema(
 
 def clean_key(s: str) -> str:
     """Helper to clean a column name for fuzzy alias matching."""
-    return str(s).strip().lower().replace(" ", "").replace("_", "").replace("-", "")
+    cleaned = str(s).strip().lower()
+    for ch in [" ", "_", "-", "(", ")", "[", "]", "$", "£", "€", "₹", "/", "\\"]:
+        cleaned = cleaned.replace(ch, "")
+    return cleaned
 
 
 def detect_schema_mapping(columns: List[str]) -> Tuple[Dict[str, str], List[str]]:
@@ -100,6 +103,59 @@ def normalize_pandas_dataframe(
     # Rename mapped columns
     normalized = normalized.rename(columns=mapping)
     
+    # Auto-synthesize missing columns for consumer transaction datasets (e.g. shopping.csv)
+    if "Quantity" not in normalized.columns:
+        normalized["Quantity"] = 1
+        
+    if "UnitPrice" not in normalized.columns and "SalesAmount" in normalized.columns:
+        normalized["UnitPrice"] = normalized["SalesAmount"]
+        
+    if "InvoiceNo" not in normalized.columns:
+        normalized["InvoiceNo"] = [f"INV-{i+1:05d}" for i in range(len(normalized))]
+        
+    if "StockCode" not in normalized.columns:
+        if "Category" in normalized.columns and "Description" in normalized.columns:
+            normalized["StockCode"] = (
+                normalized["Category"].astype(str).str[:3].str.upper() + "-" +
+                normalized["Description"].astype(str).str.upper().str.replace(" ", "", regex=False)
+            )
+        elif "Description" in normalized.columns:
+            normalized["StockCode"] = "SKU-" + normalized["Description"].astype(str).str.upper().str.replace(" ", "", regex=False)
+        else:
+            normalized["StockCode"] = [f"SKU-{i+1:04d}" for i in range(len(normalized))]
+            
+    if "InvoiceDate" not in normalized.columns:
+        import numpy as np
+        season_dates = {
+            "Winter": pd.date_range("2023-12-01", "2024-02-28"),
+            "Spring": pd.date_range("2024-03-01", "2024-05-31"),
+            "Summer": pd.date_range("2024-06-01", "2024-08-31"),
+            "Fall": pd.date_range("2024-09-01", "2024-11-30")
+        }
+        np.random.seed(42)
+        gen_dates = []
+        if "Season" in normalized.columns:
+            for s_val in normalized["Season"]:
+                d_range = season_dates.get(str(s_val).title(), season_dates["Spring"])
+                rnd_day = np.random.choice(d_range)
+                rnd_hour = np.random.randint(8, 21)
+                rnd_min = np.random.randint(0, 60)
+                gen_dates.append(pd.Timestamp(rnd_day).replace(hour=rnd_hour, minute=rnd_min).strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            d_range = pd.date_range("2023-12-01", "2024-11-30")
+            for _ in range(len(normalized)):
+                rnd_day = np.random.choice(d_range)
+                rnd_hour = np.random.randint(8, 21)
+                rnd_min = np.random.randint(0, 60)
+                gen_dates.append(pd.Timestamp(rnd_day).replace(hour=rnd_hour, minute=rnd_min).strftime("%Y-%m-%d %H:%M:%S"))
+        normalized["InvoiceDate"] = gen_dates
+        
+    if "Country" not in normalized.columns:
+        if "Location" in normalized.columns:
+            normalized["Country"] = normalized["Location"]
+        else:
+            normalized["Country"] = "Domestic"
+            
     # Preserve identifiers as strings
     for id_col in ["InvoiceNo", "StockCode", "CustomerID"]:
         if id_col in normalized.columns:
@@ -137,6 +193,17 @@ def normalize_pandas_dataframe(
         
     normalized["IsReturn"] = is_return_mask
     
+    # Currency detection
+    detected_currency = "GBP"
+    for c in list(df.columns) + list(normalized.columns):
+        c_lower = str(c).lower()
+        if "usd" in c_lower or "$" in c_lower:
+            detected_currency = "USD"
+            break
+        elif "inr" in c_lower or "₹" in c_lower or "rupee" in c_lower:
+            detected_currency = "INR"
+            break
+    
     # Summary telemetry
     summary = {
         "total_rows": len(normalized),
@@ -144,7 +211,8 @@ def normalize_pandas_dataframe(
         "return_rows_count": int(is_return_mask.sum()),
         "valid_sales_rows_count": int((~is_return_mask).sum()),
         "has_sales_amount_precomputed": has_sales_amount,
-        "mapped_fields": list(mapping.values())
+        "mapped_fields": list(mapping.values()),
+        "detected_currency": detected_currency
     }
     
     return normalized, summary

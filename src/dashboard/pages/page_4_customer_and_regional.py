@@ -68,14 +68,28 @@ def render_page():
             total_rev = country_df["TotalRevenue"].sum()
             primary_rev = primary_row["TotalRevenue"].iloc[0] if not primary_row.empty else 0.0
             other_rev = other_rows["TotalRevenue"].sum()
+            primary_share = (primary_rev / total_rev) if total_rev > 0 else 0.0
+            is_concentrated = primary_share >= 0.30
             
             c1, c2, c3 = st.columns(3)
             with c1:
-                render_kpi_card("Total Global Revenue", format_currency(total_rev, compact=True), subtitle=f"Across {len(country_df)} countries")
+                render_kpi_card(
+                    "Total Territory Revenue",
+                    format_currency(total_rev, compact=True),
+                    subtitle=f"Across {len(country_df)} regional markets"
+                )
             with c2:
-                render_kpi_card(f"Primary Market ({top_country})", format_currency(primary_rev, compact=True), subtitle=f"{format_percent((primary_rev/total_rev)*100)} of total")
+                render_kpi_card(
+                    f"{'Primary Market' if is_concentrated else 'Top Territory'} ({top_country})",
+                    format_currency(primary_rev, compact=True),
+                    subtitle=f"{format_percent(primary_share * 100)} of total"
+                )
             with c3:
-                render_kpi_card("International Markets", format_currency(other_rev, compact=True), subtitle=f"{format_percent((other_rev/total_rev)*100)} of total")
+                render_kpi_card(
+                    "International Markets" if is_concentrated else "Other Regional Territories",
+                    format_currency(other_rev, compact=True),
+                    subtitle=f"{format_percent((other_rev / total_rev) * 100)} of total"
+                )
                 
             st.divider()
             
@@ -139,7 +153,8 @@ def render_page():
                 st.plotly_chart(fig_country, use_container_width=True)
                 
             with col_intl:
-                st.markdown(f"##### 🌐 Top International Markets ({symbol})")
+                market_label = "International" if is_concentrated else "Regional"
+                st.markdown(f"##### 🌐 Other Top {market_label} Markets ({symbol})")
                 top_intl = other_rows.head(8).copy()
                 top_intl["ScaledRevenue"] = top_intl["TotalRevenue"] * rate
                 top_intl["ScaledCountryAOV"] = top_intl["CountryAOV"] * rate

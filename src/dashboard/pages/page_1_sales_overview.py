@@ -84,6 +84,10 @@ def render_page():
             st.markdown(f"**Presentation:** `{code} ({symbol})` &nbsp;|&nbsp; **Source:** `{src_curr}`")
             if code == "INR" and src_curr == "GBP":
                 st.caption(f"Conversion Reference Rate: `1 GBP = ₹{rate:.2f}`")
+            elif code == "INR" and src_curr == "USD":
+                st.caption(f"Conversion Reference Rate: `1 USD = ₹{rate:.2f}`")
+            elif code != src_curr:
+                st.caption(f"Conversion Reference Rate: `1 {src_curr} = {symbol}{rate:.4f}`")
             else:
                 st.caption("Standard 1:1 Native Valuation")
                 

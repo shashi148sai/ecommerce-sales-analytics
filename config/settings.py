@@ -74,9 +74,14 @@ SOURCE_CURRENCY_CODE = "GBP"
 TARGET_CURRENCY = "₹"
 TARGET_CURRENCY_CODE = "INR"
 
-# Documented Reference Conversion Rate (1 GBP = ₹106.50 reference rate)
+# Documented Reference Conversion Rate (1 GBP = ₹106.50, 1 USD = ₹84.00 reference rate)
 DEFAULT_GBP_TO_INR_RATE = 106.50
+DEFAULT_USD_TO_INR_RATE = 84.00
 REFERENCE_RATE_DATE = "2026-10-23"
+
+# Pre-packaged Sample Data Files
+SAMPLE_RAW_FILE = RAW_DATA_DIR / "sample_retail.csv"
+SAMPLE_SHOPPING_FILE = RAW_DATA_DIR / "shopping.csv"
 
 # Upload Limits
 MAX_UPLOAD_SIZE_MB = 100
@@ -180,7 +185,7 @@ COLUMN_ALIASES = {
     "Description": [
         "description", "product_name", "productname", "item_name", "itemname", "product",
         "item", "title", "product_description", "item_desc", "item_description", "details",
-        "name"
+        "name", "item_purchased", "itempurchased", "item purchased"
     ],
     "Quantity": [
         "quantity", "qty", "units", "unit", "units_sold", "items_count", "item_count",
@@ -192,11 +197,15 @@ COLUMN_ALIASES = {
     ],
     "UnitPrice": [
         "unitprice", "unit_price", "price", "rate", "item_price", "selling_price",
-        "unit_cost", "cost_per_unit", "mrp", "item_cost"
+        "unit_cost", "cost_per_unit", "mrp", "item_cost", "purchase_amount_(usd)",
+        "purchase_amount", "purchaseamount", "purchaseamountusd", "purchase_amount_usd",
+        "purchase amount (usd)", "purchase amount", "amount (usd)", "amount_usd"
     ],
     "SalesAmount": [
         "sales", "revenue", "total", "total_amount", "sales_amount", "net_amount",
-        "line_total", "linetotal", "total_price", "totalprice", "gross_amount", "amount"
+        "line_total", "linetotal", "total_price", "totalprice", "gross_amount", "amount",
+        "purchase_amount_(usd)", "purchase_amount", "purchaseamount", "purchaseamountusd",
+        "purchase_amount_usd", "purchase amount (usd)", "purchase amount"
     ],
     "CustomerID": [
         "customerid", "customer_id", "customer", "user_id", "userid", "client_id",

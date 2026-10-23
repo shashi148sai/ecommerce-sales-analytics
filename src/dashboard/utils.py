@@ -107,24 +107,43 @@ def get_active_currency_config() -> Tuple[str, str, float]:
     """
     Retrieves the user's active presentation currency mode, symbol, and multiplier from session_state.
     Defaults to INR (₹) - Indian Rupees as required by project guidelines.
-    Dynamically accounts for dataset source currency (e.g. GBP vs INR) so that native INR datasets
+    Dynamically accounts for dataset source currency (e.g. USD, GBP vs INR) so that native INR datasets
     are never erroneously multiplied by conversion rates.
     """
     mode = st.session_state.get("currency_mode", "INR (₹)")
-    source_curr = str(st.session_state.get("dataset_source_currency", "GBP")).upper()
-    inr_rate = float(st.session_state.get("inr_conversion_rate", settings.DEFAULT_GBP_TO_INR_RATE))
+    source_curr = str(st.session_state.get("dataset_source_currency", "USD" if "shopping" in str(st.session_state.get("active_dataset_type", "")).lower() else "GBP")).upper()
+    
+    gbp_rate = float(st.session_state.get("inr_conversion_rate", settings.DEFAULT_GBP_TO_INR_RATE))
+    usd_rate = float(st.session_state.get("usd_conversion_rate", getattr(settings, "DEFAULT_USD_TO_INR_RATE", 84.00)))
     
     if mode.startswith("INR") or mode == "INR":
         symbol = "₹"
         code = "INR"
-        # If source is GBP, apply reference exchange rate; if already INR, multiplier is 1.0
-        rate = inr_rate if source_curr == "GBP" else 1.0
-    else:
+        if source_curr == "GBP":
+            rate = gbp_rate
+        elif source_curr == "USD":
+            rate = usd_rate
+        else:
+            rate = 1.0
+    elif mode.startswith("USD") or mode == "USD":
+        symbol = "$"
+        code = "USD"
+        if source_curr == "USD":
+            rate = 1.0
+        elif source_curr == "GBP":
+            rate = gbp_rate / usd_rate
+        else:  # source is INR
+            rate = 1.0 / usd_rate
+    else:  # GBP
         symbol = "£"
         code = "GBP"
-        # If source is INR and user wants GBP, divide; if already GBP, multiplier is 1.0
-        rate = (1.0 / inr_rate) if source_curr == "INR" else 1.0
-        
+        if source_curr == "GBP":
+            rate = 1.0
+        elif source_curr == "USD":
+            rate = usd_rate / gbp_rate
+        else:  # source is INR
+            rate = 1.0 / gbp_rate
+            
     return symbol, code, rate
 
 

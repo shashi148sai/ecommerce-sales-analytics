@@ -42,31 +42,48 @@ def render_page():
     # Primary Call to Action Buttons
     # --------------------------------------------------------------------------
     st.write("")
-    cta_col1, cta_col2, cta_col3 = st.columns([1.2, 1.2, 1.4])
+    cta_col1, cta_col2, cta_col3, cta_col4 = st.columns([1.2, 1.4, 1.4, 1.3])
     
     with cta_col1:
-        if st.button("🚀 Upload Your Dataset", type="primary", use_container_width=True):
+        if st.button("🚀 Upload Dataset", type="primary", use_container_width=True):
             st.session_state["nav_selection"] = "📥 Upload & Manage Data"
             st.rerun()
             
     with cta_col2:
-        if st.button("🧪 Explore Sample Dataset", type="secondary", use_container_width=True):
-            with st.spinner("Initializing PySpark sample dataset pipeline..."):
-                if settings.SAMPLE_RAW_FILE.exists():
-                    st.session_state["active_dataset_type"] = "sample"
-                    st.session_state["dataset_source_currency"] = "GBP"
+        if st.button("🛍️ Explore Shopping Data", type="secondary", use_container_width=True, help="Load Consumer Shopping Trends dataset (3,900 consumer purchase logs)"):
+            with st.spinner("Initializing PySpark shopping dataset pipeline..."):
+                shop_file = getattr(settings, "SAMPLE_SHOPPING_FILE", settings.RAW_DATA_DIR / "shopping.csv")
+                if shop_file.exists():
+                    st.session_state["active_dataset_type"] = "shopping"
+                    st.session_state["dataset_source_currency"] = "USD"
                     try:
-                        run_pipeline(input_file_path=settings.SAMPLE_RAW_FILE)
+                        run_pipeline(input_file_path=shop_file)
                         st.session_state["nav_selection"] = "💼 Sales Overview"
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Failed to load sample dataset: {str(e)}")
+                        st.error(f"Failed to load shopping dataset: {str(e)}")
                 else:
-                    st.warning("Sample dataset file not found at default location.")
+                    st.warning("Shopping dataset file not found at default location.")
                     
     with cta_col3:
+        if st.button("🛒 Explore Retail 540K", type="secondary", use_container_width=True, help="Load UCI Online Retail dataset (541,909 transactions)"):
+            with st.spinner("Initializing PySpark canonical dataset pipeline..."):
+                retail_file = settings.DEFAULT_RAW_FILE
+                if retail_file.exists():
+                    st.session_state["active_dataset_type"] = "canonical"
+                    st.session_state["dataset_source_currency"] = "GBP"
+                    try:
+                        run_pipeline(input_file_path=retail_file)
+                        st.session_state["nav_selection"] = "💼 Sales Overview"
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to load retail dataset: {str(e)}")
+                else:
+                    st.warning("OnlineRetail.csv not found at data/raw/.")
+                    
+    with cta_col4:
         st.download_button(
-            label="📥 Download CSV Sales Template",
+            label="📥 Download Template",
             data=get_csv_template(),
             file_name="salespulse_template.csv",
             mime="text/csv",
@@ -79,13 +96,15 @@ def render_page():
     # --------------------------------------------------------------------------
     # Active Dataset Overview / Live Metrics Snapshot
     # --------------------------------------------------------------------------
-    dataset_type = st.session_state.get("active_dataset_type", "canonical" if meta else "none")
+    dataset_type = st.session_state.get("active_dataset_type", "shopping" if meta and "shopping" in str(meta.get("dataset_file", "")).lower() else ("canonical" if meta else "none"))
     
     if meta and kpis:
         with st.container(border=True):
             hdr_col, btn_col = st.columns([3, 1])
             with hdr_col:
-                if dataset_type == "sample":
+                if dataset_type == "shopping" or (meta and "shopping" in str(meta.get("dataset_file", "")).lower()):
+                    st.markdown("##### 🛍️ Active Dataset: **Consumer Shopping Trends (shopping.csv)**")
+                elif dataset_type == "sample":
                     st.markdown("##### 🧪 Active Dataset: **UCI Online Retail (Validation Sample)**")
                 else:
                     st.markdown(f"##### ✅ Active Dataset: **{meta.get('dataset_file', 'OnlineRetail.csv')}**")

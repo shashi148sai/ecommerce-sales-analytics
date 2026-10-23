@@ -38,6 +38,12 @@ inject_professional_styles()
 # ------------------------------------------------------------------------------
 # Session State Initialization (Default Presentation Currency: INR)
 # ------------------------------------------------------------------------------
+meta = load_pipeline_metadata()
+if meta and "shopping" in str(meta.get("dataset_file", "")).lower():
+    st.session_state["dataset_source_currency"] = "USD"
+    if "active_dataset_type" not in st.session_state:
+        st.session_state["active_dataset_type"] = "shopping"
+
 if "currency_mode" not in st.session_state:
     st.session_state["currency_mode"] = "INR (₹)"
     st.session_state["active_currency_symbol"] = "₹"
@@ -45,11 +51,14 @@ if "currency_mode" not in st.session_state:
 if "inr_conversion_rate" not in st.session_state:
     st.session_state["inr_conversion_rate"] = settings.DEFAULT_GBP_TO_INR_RATE
     
+if "usd_conversion_rate" not in st.session_state:
+    st.session_state["usd_conversion_rate"] = getattr(settings, "DEFAULT_USD_TO_INR_RATE", 84.00)
+    
 if "dataset_source_currency" not in st.session_state:
-    st.session_state["dataset_source_currency"] = "GBP"
+    st.session_state["dataset_source_currency"] = "USD" if meta and "shopping" in str(meta.get("dataset_file", "")).lower() else "GBP"
     
 if "active_dataset_type" not in st.session_state:
-    st.session_state["active_dataset_type"] = "canonical"
+    st.session_state["active_dataset_type"] = "shopping" if meta and "shopping" in str(meta.get("dataset_file", "")).lower() else ("canonical" if meta else "none")
 
 # ------------------------------------------------------------------------------
 # Sidebar Navigation & Environment Information
@@ -59,11 +68,12 @@ with st.sidebar:
     st.caption("Big Data & Cloud E-Commerce Analytics")
     
     # Active Dataset Status Badge
-    meta = load_pipeline_metadata()
-    dataset_type = st.session_state.get("active_dataset_type", "canonical" if meta else "none")
+    dataset_type = st.session_state.get("active_dataset_type", "shopping" if meta and "shopping" in str(meta.get("dataset_file", "")).lower() else ("canonical" if meta else "none"))
     
-    if dataset_type == "sample":
-        st.info("🧪 **Active:** Included Sample Data")
+    if dataset_type == "shopping" or (meta and "shopping" in str(meta.get("dataset_file", "")).lower()):
+        st.success("🛍️ **Active:** Consumer Shopping Data (shopping.csv)")
+    elif dataset_type == "sample":
+        st.info("🧪 **Active:** Included Retail Sample")
     elif meta:
         st.success(f"● **Active:** {meta.get('dataset_file', 'OnlineRetail.csv')}")
     else:
@@ -104,23 +114,41 @@ with st.sidebar:
     
     # Quick Currency Switcher
     st.markdown("**💱 Currency Presentation:**")
+    src_curr = str(st.session_state.get("dataset_source_currency", "USD" if dataset_type == "shopping" else "GBP")).upper()
+    
+    if src_curr == "USD":
+        curr_options = ["INR (₹) - Indian Rupees", "USD ($) - US Dollars", "GBP (£) - British Pounds"]
+    else:
+        curr_options = ["INR (₹) - Indian Rupees", "GBP (£) - British Pounds", "USD ($) - US Dollars"]
+        
+    curr_idx = 0
+    cur_mode = st.session_state.get("currency_mode", "INR (₹)")
+    if cur_mode.startswith("USD"):
+        curr_idx = 1 if src_curr == "USD" else 2
+    elif cur_mode.startswith("GBP"):
+        curr_idx = 2 if src_curr == "USD" else 1
+        
     curr_radio = st.radio(
         "Active Display Currency:",
-        options=["INR (₹) - Indian Rupees", "GBP (£) - British Pounds"],
-        index=0 if st.session_state["currency_mode"].startswith("INR") else 1,
+        options=curr_options,
+        index=curr_idx,
         label_visibility="collapsed"
     )
     
     if curr_radio.startswith("INR"):
         st.session_state["currency_mode"] = "INR (₹)"
         st.session_state["active_currency_symbol"] = "₹"
+    elif curr_radio.startswith("USD"):
+        st.session_state["currency_mode"] = "USD ($)"
+        st.session_state["active_currency_symbol"] = "$"
     else:
         st.session_state["currency_mode"] = "GBP (£)"
         st.session_state["active_currency_symbol"] = "£"
         
     symbol, code, rate = get_active_currency_config()
-    src_curr = st.session_state.get("dataset_source_currency", "GBP")
-    if code == "INR" and src_curr == "GBP":
+    if code == "INR" and src_curr == "USD":
+        st.caption(f"Ref Rate: `1 USD = ₹{rate:.2f}`")
+    elif code == "INR" and src_curr == "GBP":
         st.caption(f"Ref Rate: `1 GBP = ₹{rate:.2f}`")
     elif code == "INR" and src_curr == "INR":
         st.caption("Native INR Dataset `(1:1 direct)`")

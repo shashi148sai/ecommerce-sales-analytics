@@ -318,32 +318,45 @@ def load_raw_data(
     suffix = path_obj.suffix.lower()
     
     if suffix in (".csv", ".tsv", ".txt"):
-        if column_mapping:
-            raw_df = (
-                spark.read
-                .option("header", "true")
-                .option("mode", "PERMISSIVE")
-                .option("quote", "\"")
-                .option("escape", "\"")
-                .csv(str(path_obj))
-            )
-            for file_col, target_col in column_mapping.items():
-                if file_col in raw_df.columns:
-                    raw_df = raw_df.withColumnRenamed(file_col, target_col)
-            for col_name in RAW_SCHEMA.names:
-                if col_name not in raw_df.columns:
-                    raw_df = raw_df.withColumn(col_name, F.lit(None).cast("string"))
-            df = raw_df.select(RAW_SCHEMA.names)
-        else:
-            df = (
-                spark.read
-                .option("header", "true")
-                .option("mode", "PERMISSIVE")
-                .option("quote", "\"")
-                .option("escape", "\"")
-                .schema(RAW_SCHEMA)
-                .csv(str(path_obj))
-            )
+        raw_df = (
+            spark.read
+            .option("header", "true")
+            .option("mode", "PERMISSIVE")
+            .option("quote", "\"")
+            .option("escape", "\"")
+            .csv(str(path_obj))
+        )
+        effective_mapping = column_mapping or {}
+        if not effective_mapping:
+            from src.validation.validator import detect_schema_mapping
+            auto_map, _ = detect_schema_mapping(raw_df.columns)
+            effective_mapping = auto_map
+            
+        for file_col, target_col in effective_mapping.items():
+            if file_col in raw_df.columns and file_col != target_col:
+                raw_df = raw_df.withColumnRenamed(file_col, target_col)
+                
+        # If core columns like InvoiceDate or StockCode are missing from CSV,
+        # use pandas normalizer to synthesize seasonal timestamps and enterprise SKUs
+        has_essential_cols = all(c in raw_df.columns for c in ["InvoiceNo", "InvoiceDate", "StockCode"])
+        if not has_essential_cols:
+            import pandas as pd
+            pdf = pd.read_csv(path_obj)
+            from src.validation.validator import normalize_pandas_dataframe
+            norm_pdf, _ = normalize_pandas_dataframe(pdf, effective_mapping)
+            for c in RAW_SCHEMA.names:
+                if c not in norm_pdf.columns:
+                    norm_pdf[c] = None
+            norm_pdf = norm_pdf[RAW_SCHEMA.names]
+            df = spark.createDataFrame(norm_pdf.astype(str), schema=RAW_SCHEMA)
+            if limit is not None:
+                df = df.limit(limit)
+            return df
+            
+        for col_name in RAW_SCHEMA.names:
+            if col_name not in raw_df.columns:
+                raw_df = raw_df.withColumn(col_name, F.lit(None).cast("string"))
+        df = raw_df.select(RAW_SCHEMA.names)
     elif suffix in (".xlsx", ".xls", ".parquet", ".json", ".jsonl"):
         # Read via pandas universal parser and load to Spark
         pdf, _, err = parse_tabular_data(path_obj, filename=path_obj.name, nrows=limit)
