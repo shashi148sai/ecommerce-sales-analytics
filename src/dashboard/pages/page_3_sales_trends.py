@@ -190,6 +190,24 @@ def render_page():
                 
                 filtered_daily["DisplayDate"] = filtered_daily["ParsedDate"].apply(format_date_indian)
                 
+                # Interactive range summary cards
+                if not filtered_daily.empty:
+                    range_rev = float(filtered_daily["ScaledDailyRevenue"].sum())
+                    range_days = len(filtered_daily)
+                    range_avg = range_rev / range_days if range_days > 0 else 0.0
+                    peak_idx = filtered_daily["ScaledDailyRevenue"].idxmax()
+                    peak_row = filtered_daily.loc[peak_idx]
+                    
+                    rk1, rk2, rk3, rk4 = st.columns(4)
+                    with rk1:
+                        st.metric("Period Revenue", format_currency(range_rev, override_rate=1.0, compact=True))
+                    with rk2:
+                        st.metric("Daily Average", format_currency(range_avg, override_rate=1.0))
+                    with rk3:
+                        st.metric("Peak Day Sales", format_currency(float(peak_row['ScaledDailyRevenue']), override_rate=1.0, compact=True), delta=format_date_indian(peak_row['ParsedDate']))
+                    with rk4:
+                        st.metric("Observed Days", f"{range_days} Days")
+                        
                 fig_daily = px.line(
                     filtered_daily,
                     x="ParsedDate",
@@ -274,11 +292,13 @@ def render_page():
         )
         
         with st.container(border=True):
-            col_f1, col_f2 = st.columns(2)
+            col_f1, col_f2, col_f3 = st.columns([1.4, 1.4, 1.6])
             with col_f1:
                 forecast_horizon = st.slider("Forecast Horizon (Days)", min_value=7, max_value=60, value=30, step=7, key="fc_slider")
             with col_f2:
-                test_split = st.select_slider("Historical Hold-out Test Proportion", options=[0.15, 0.20, 0.25], value=0.20, key="fc_split")
+                test_split = st.select_slider("Historical Hold-out Proportion", options=[0.15, 0.20, 0.25], value=0.20, key="fc_split")
+            with col_f3:
+                scenario = st.selectbox("Interactive Scenario Simulation", ["Base Baseline (1.0x)", "Optimistic Growth (+15%)", "Conservative (-15%)"], index=0, key="fc_scenario")
                 
         forecast_results = None
         try:
@@ -297,6 +317,7 @@ def render_page():
             
         if forecast_results is not None:
             metrics = forecast_results["evaluation_metrics"]
+            scenario_mult = 1.15 if "Optimistic" in scenario else (0.85 if "Conservative" in scenario else 1.0)
             
             # Display validation metrics
             mc1, mc2, mc3, mc4 = st.columns(4)
@@ -307,7 +328,7 @@ def render_page():
             with mc3:
                 render_kpi_card("MAPE Accuracy", f"{metrics['MAPE_percent']:.1f}%", subtitle="Mean absolute % error")
             with mc4:
-                render_kpi_card("Hold-out Test Window", f"{metrics['holdout_test_days']} Days", subtitle=f"Trained on {metrics['train_days']} days")
+                render_kpi_card("Hold-out Test Window", f"{metrics['holdout_test_days']} Days", subtitle=f"Scenario: {scenario.split()[0]}")
                 
             st.divider()
             
@@ -335,9 +356,9 @@ def render_page():
             if not future_df.empty:
                 if "ForecastedRevenue" not in future_df.columns and "PredictedRevenue" in future_df.columns:
                     future_df["ForecastedRevenue"] = future_df["PredictedRevenue"]
-                future_df["ScaledForecast"] = future_df["ForecastedRevenue"] * rate
-                future_df["ScaledUpper"] = future_df["UpperBound"] * rate
-                future_df["ScaledLower"] = future_df["LowerBound"] * rate
+                future_df["ScaledForecast"] = future_df["ForecastedRevenue"] * rate * scenario_mult
+                future_df["ScaledUpper"] = future_df["UpperBound"] * rate * scenario_mult
+                future_df["ScaledLower"] = future_df["LowerBound"] * rate * scenario_mult
                 
             fig = go.Figure()
             

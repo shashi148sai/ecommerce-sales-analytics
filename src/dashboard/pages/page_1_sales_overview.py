@@ -90,41 +90,63 @@ def render_page():
     filtered_monthly = fy_filtered if selected_qtr == "All Quarters" else fy_filtered[fy_filtered["Indian_Quarter"] == selected_qtr]
 
     # --------------------------------------------------------------------------
-    # Executive KPI Cards (Row 1) - Streamlit Native Bordered Containers
+    # Dynamic Executive KPI Cards (Recalculates based on Active Filter)
     # --------------------------------------------------------------------------
+    if not filtered_monthly.empty:
+        calc_gross = float(filtered_monthly["MonthlyRevenue"].sum())
+        calc_orders = int(filtered_monthly["MonthlyOrders"].sum())
+        calc_units = int(filtered_monthly["MonthlyUnits"].sum())
+        calc_aov = round(calc_gross / calc_orders, 2) if calc_orders > 0 else 0.0
+        
+        # Proportional return calculation based on overall return rate
+        return_rate = float(kpis.get("return_rate_percent", 0.0)) / 100.0
+        calc_returns = round(calc_gross * return_rate, 2)
+        calc_net = round(calc_gross - calc_returns, 2)
+        
+        is_filtered = (selected_fy != "All Financial Years" or selected_qtr != "All Quarters")
+        filter_tag = f"Period: {selected_fy} ({selected_qtr})" if is_filtered else "All-Time Aggregate"
+    else:
+        calc_gross = float(kpis.get("gross_revenue", 0.0))
+        calc_returns = float(kpis.get("return_adjustments", 0.0))
+        calc_net = float(kpis.get("net_revenue", 0.0))
+        calc_orders = int(kpis.get("total_orders", 0))
+        calc_units = int(kpis.get("total_units_sold", 0))
+        calc_aov = float(kpis.get("average_order_value", 0.0))
+        filter_tag = "All-Time Aggregate"
+
     c1, c2, c3, c4, c5 = st.columns(5)
     
     with c1:
         render_kpi_card(
             title="Gross Revenue",
-            value=format_currency(kpis.get("gross_revenue"), compact=True),
-            subtitle=f"Exact: {format_currency(kpis.get('gross_revenue'))}"
+            value=format_currency(calc_gross, compact=True),
+            subtitle=f"{filter_tag}"
         )
     with c2:
         render_kpi_card(
-            title="Return Adjustments",
-            value=format_currency(kpis.get("return_adjustments"), compact=True),
-            subtitle=f"{format_percent(kpis.get('return_rate_percent'))} of gross sales",
+            title="Return Deductions",
+            value=format_currency(calc_returns, compact=True),
+            subtitle=f"{format_percent(kpis.get('return_rate_percent'))} return rate",
             delta=f"-{format_percent(kpis.get('return_rate_percent'))}",
             delta_positive=False
         )
     with c3:
         render_kpi_card(
             title="Net Revenue",
-            value=format_currency(kpis.get("net_revenue"), compact=True),
-            subtitle="Gross minus refunds/returns"
+            value=format_currency(calc_net, compact=True),
+            subtitle="Gross minus refunds"
         )
     with c4:
         render_kpi_card(
-            title="Distinct Orders",
-            value=format_number(kpis.get("total_orders")),
-            subtitle=f"Units: {format_number(kpis.get('total_units_sold'))}"
+            title="Completed Orders",
+            value=format_number(calc_orders),
+            subtitle=f"Units: {format_number(calc_units)}"
         )
     with c5:
         render_kpi_card(
             title="Avg Order Value",
-            value=format_currency(kpis.get("average_order_value")),
-            subtitle="Gross sales / total orders"
+            value=format_currency(calc_aov),
+            subtitle="Revenue / total orders"
         )
         
     st.divider()
@@ -173,6 +195,22 @@ def render_page():
             )
             apply_chart_theme(fig_trend)
             st.plotly_chart(fig_trend, use_container_width=True)
+            
+            # Interactive month-level drilldown inspector
+            month_list = filtered_monthly["YearMonth"].tolist()
+            if len(month_list) > 0:
+                with st.expander("🔍 Interactive Month Drilldown Inspector", expanded=False):
+                    sel_month = st.selectbox("Select Month to Inspect Performance:", month_list, index=len(month_list)-1)
+                    m_row = filtered_monthly[filtered_monthly["YearMonth"] == sel_month].iloc[0]
+                    d1, d2, d3, d4 = st.columns(4)
+                    with d1:
+                        st.metric("Revenue", format_currency(m_row["MonthlyRevenue"]))
+                    with d2:
+                        st.metric("Orders", format_number(m_row["MonthlyOrders"]))
+                    with d3:
+                        st.metric("Units", format_number(m_row["MonthlyUnits"]))
+                    with d4:
+                        st.metric("MoM Expansion", f"{m_row.get('RevenueGrowthPercent', 0.0):+.1f}%")
         else:
             st.info("No monthly trend data matches the selected financial year/quarter filter.")
             

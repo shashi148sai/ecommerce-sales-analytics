@@ -136,22 +136,92 @@ def render_page():
         st.plotly_chart(fig_qty, use_container_width=True)
             
     with tab3:
-        st.subheader("Search Product Catalog")
-        st.caption("Search across catalog inventory by SKU or product title to inspect item-level metrics.")
-        search_query = st.text_input("Enter SKU/StockCode or Description Keyword:", placeholder="e.g. WHITE HANGING HEART or 85123A")
+        st.subheader("Interactive Product Catalog Explorer")
+        st.caption("Search, filter, and drill into individual catalog SKUs by description, unit price, and velocity.")
+        
+        # Filter Control Panel
+        with st.container(border=True):
+            col_search, col_sort = st.columns([2, 1.2])
+            with col_search:
+                search_query = st.text_input(
+                    "🔍 Search SKU or Product Description Keyword:",
+                    placeholder="e.g. HEART, LANTERN, MUG, or 85123A",
+                    help="Filter catalog items by title substring or exact alphanumeric StockCode."
+                )
+            with col_sort:
+                sort_metric = st.selectbox(
+                    "Sort Results By:",
+                    options=["Total Revenue (High to Low)", "Units Sold (High to Low)", "Average Price (High to Low)", "Order Volume (High to Low)"],
+                    index=0
+                )
+                
+            col_min_units, col_min_price = st.columns(2)
+            with col_min_units:
+                min_units = st.slider("Minimum Units Sold Filter:", min_value=0, max_value=5000, value=0, step=50)
+            with col_min_price:
+                max_price_val = float((top_rev_df["AvgUnitPrice"] * rate).max()) if not top_rev_df.empty else 1000.0
+                price_ceiling = min(max_price_val, 10000.0)
+                selected_price_range = st.slider(
+                    f"Unit Price Range ({symbol}):",
+                    min_value=0.0,
+                    max_value=round(price_ceiling, 0),
+                    value=(0.0, round(price_ceiling, 0)),
+                    step=5.0
+                )
+        
+        # Filtering logic
+        catalog_pool = top_rev_df.copy()
+        catalog_pool["ScaledRevenue"] = catalog_pool["TotalRevenue"] * rate
+        catalog_pool["ScaledAvgUnitPrice"] = catalog_pool["AvgUnitPrice"] * rate
         
         if search_query:
-            matched = top_rev_df[
-                top_rev_df["Description"].str.contains(search_query, case=False, na=False) |
-                top_rev_df["StockCode"].str.contains(search_query, case=False, na=False)
-            ].copy()
+            catalog_pool = catalog_pool[
+                catalog_pool["Description"].str.contains(search_query, case=False, na=False) |
+                catalog_pool["StockCode"].str.contains(search_query, case=False, na=False)
+            ]
             
-            matched["ScaledRevenue"] = matched["TotalRevenue"] * rate
-            matched["ScaledAvgUnitPrice"] = matched["AvgUnitPrice"] * rate
+        if min_units > 0:
+            catalog_pool = catalog_pool[catalog_pool["UnitsSold"] >= min_units]
             
-            st.write(f"Found **{len(matched)}** matching catalog items:")
+        catalog_pool = catalog_pool[
+            (catalog_pool["ScaledAvgUnitPrice"] >= selected_price_range[0]) &
+            (catalog_pool["ScaledAvgUnitPrice"] <= selected_price_range[1])
+        ]
+        
+        # Sorting
+        if sort_metric == "Total Revenue (High to Low)":
+            catalog_pool = catalog_pool.sort_values("ScaledRevenue", ascending=False)
+        elif sort_metric == "Units Sold (High to Low)":
+            catalog_pool = catalog_pool.sort_values("UnitsSold", ascending=False)
+        elif sort_metric == "Average Price (High to Low)":
+            catalog_pool = catalog_pool.sort_values("ScaledAvgUnitPrice", ascending=False)
+        elif sort_metric == "Order Volume (High to Low)":
+            catalog_pool = catalog_pool.sort_values("OrderCount", ascending=False)
+            
+        # Display Results
+        if not catalog_pool.empty:
+            st.markdown(f"##### 🎯 Catalog Results ({len(catalog_pool):,} items found)")
+            
+            # Interactive SKU Single Item Inspector
+            with st.expander("🔬 Single SKU Detail Deep Dive Inspector", expanded=False):
+                sku_choices = [f"{row['StockCode']} — {str(row['Description'])[:45]}" for _, row in catalog_pool.head(50).iterrows()]
+                chosen_sku_label = st.selectbox("Select Item to Inspect:", sku_choices)
+                if chosen_sku_label:
+                    chosen_code = chosen_sku_label.split(" — ")[0]
+                    chosen_row = catalog_pool[catalog_pool["StockCode"] == chosen_code].iloc[0]
+                    
+                    sk1, sk2, sk3, sk4 = st.columns(4)
+                    with sk1:
+                        render_kpi_card(f"Gross Revenue ({symbol})", format_currency(chosen_row["TotalRevenue"]))
+                    with sk2:
+                        render_kpi_card("Physical Units", format_number(chosen_row["UnitsSold"]))
+                    with sk3:
+                        render_kpi_card("Orders", format_number(chosen_row["OrderCount"]))
+                    with sk4:
+                        render_kpi_card(f"Avg Unit Price ({symbol})", format_currency(chosen_row["AvgUnitPrice"]))
+            
             st.dataframe(
-                matched[["StockCode", "Description", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"]].style.format({
+                catalog_pool[["StockCode", "Description", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"]].head(100).style.format({
                     "ScaledRevenue": f"{symbol}{{:,.2f}}",
                     "UnitsSold": "{:,}",
                     "OrderCount": "{:,}",
@@ -159,8 +229,16 @@ def render_page():
                 }),
                 use_container_width=True
             )
+            
+            csv_filtered = catalog_pool[["StockCode", "Description", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"]].to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label=f"📥 Download Filtered Catalog View ({len(catalog_pool)} SKUs) (CSV)",
+                data=csv_filtered,
+                file_name="filtered_catalog_export.csv",
+                mime="text/csv"
+            )
         else:
-            st.info("Enter a search term above to filter and inspect individual catalog SKUs.")
+            st.warning("⚠️ No products match the current keyword, unit, and price filter criteria. Try broadening your search or resetting sliders.")
 
 
 if __name__ == "__main__":

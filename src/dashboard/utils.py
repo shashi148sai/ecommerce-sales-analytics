@@ -484,7 +484,9 @@ CHART_COLORS = {
     "danger": "#DC2626",      # Crimson / Red
     "success": "#059669",     # Emerald Green
     "purple": "#7C3AED",      # Royal Violet
-    "slate": "#64748B"        # Slate grey
+    "slate": "#64748B",       # Slate grey
+    "neutral_dark": "#334155", # Dark Slate
+    "neutral_light": "#F1F5F9" # Light Slate
 }
 
 
@@ -682,6 +684,41 @@ h4, h5 {
     border-radius: 10px !important;
     border: 1px solid rgba(0,0,0,0.06) !important;
     box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+}
+
+/* Completely remove Streamlit Deploy button, toolbar, and watermarks */
+[data-testid="stAppDeployButton"],
+.stDeployButton,
+button[title*="Deploy"],
+button[aria-label*="Deploy"],
+[data-testid="stToolbarActions"],
+[data-testid="stToolbarActionButton"],
+[data-testid="stToolbar"],
+header [data-testid="stToolbar"],
+header [data-testid="stAppDeployButton"],
+header .stDeployButton,
+header button[kind="header"],
+div[class*="stDeployButton"],
+div[data-testid*="Deploy"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+#MainMenu,
+footer,
+.viewerBadge_container__r5tak,
+.styles_viewerBadge__1yyg5 {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 1.5rem !important;
 }
 </style>"""
     st.markdown(css, unsafe_allow_html=True)

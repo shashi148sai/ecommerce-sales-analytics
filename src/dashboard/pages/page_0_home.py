@@ -92,13 +92,13 @@ def render_page():
                     f"Storage: **Local Lakehouse (Parquet)**"
                 )
             with btn_col:
-                if st.button("Open Dashboard ➔", type="primary", use_container_width=True):
+                if st.button("Open Full Dashboard ➔", type="primary", use_container_width=True):
                     st.session_state["nav_selection"] = "💼 Sales Overview"
                     st.rerun()
                     
             st.divider()
             
-            # Quick 4-metric live teaser
+            # Interactive 4-metric live teaser
             m1, m2, m3, m4 = st.columns(4)
             with m1:
                 st.metric("NET SALES", format_currency(kpis.get("net_revenue"), compact=True))
@@ -108,6 +108,30 @@ def render_page():
                 st.metric("UNITS SOLD", format_number(kpis.get("total_units_sold")))
             with m4:
                 st.metric("CATALOG SKUs", format_number(kpis.get("distinct_products")))
+                
+            # Interactive sparkline overview
+            from src.dashboard.utils import load_monthly_trends, apply_chart_theme
+            import plotly.express as px
+            monthly_trends = load_monthly_trends()
+            if not monthly_trends.empty:
+                st.write("")
+                scaled_rev = monthly_trends["MonthlyRevenue"] * rate
+                fig_spark = px.area(
+                    monthly_trends,
+                    x="YearMonth",
+                    y=scaled_rev,
+                    title=f"📈 Overall Revenue Progression ({symbol})",
+                    labels={"y": f"Revenue ({symbol})", "YearMonth": "Month"}
+                )
+                fig_spark.update_traces(line_color="#2563EB", fillcolor="rgba(37,99,235,0.08)")
+                fig_spark.update_layout(
+                    height=220,
+                    margin=dict(l=30, r=20, t=35, b=25),
+                    xaxis=dict(showgrid=False, title=""),
+                    yaxis=dict(showgrid=True, gridcolor="#F1F5F9", tickprefix=symbol)
+                )
+                apply_chart_theme(fig_spark)
+                st.plotly_chart(fig_spark, use_container_width=True)
     else:
         with st.container(border=True):
             st.markdown("##### ℹ️ Welcome! No Dataset Loaded")
@@ -129,40 +153,7 @@ def render_page():
     st.write("")
     
     # --------------------------------------------------------------------------
-    # Three-Step Workflow Guide
-    # --------------------------------------------------------------------------
-    st.subheader("How SalesPulse Analytics Operates")
-    
-    step_c1, step_c2, step_c3 = st.columns(3)
-    
-    with step_c1:
-        with st.container(border=True):
-            st.markdown("#### 1️⃣ Ingest Any Format")
-            st.caption(
-                "Upload files in CSV, Excel, TSV, JSON, Parquet, or safe ZIP archives. "
-                "You can also paste copied spreadsheet rows directly or use the interactive grid."
-            )
-            
-    with step_c2:
-        with st.container(border=True):
-            st.markdown("#### 2️⃣ Validate & Map")
-            st.caption(
-                "Smart fuzzy alias detection maps your columns automatically. "
-                "Audits missing fields, detects return invoices (`C*`), and prevents double-calculation."
-            )
-            
-    with step_c3:
-        with st.container(border=True):
-            st.markdown("#### 3️⃣ Distributed Insights")
-            st.caption(
-                "Apache Spark executes high-speed aggregations in memory. "
-                "Uncover revenue velocity, customer RFM tiers, regional distribution, and future demand."
-            )
-            
-    st.write("")
-    
-    # --------------------------------------------------------------------------
-    # Analytics Modules Grid with Direct Action Links
+    # Interactive Analytics Modules Directory
     # --------------------------------------------------------------------------
     st.subheader("Explore Analytics Modules")
     

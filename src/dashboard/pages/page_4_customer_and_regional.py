@@ -78,6 +78,40 @@ def render_page():
                 render_kpi_card("International Markets", format_currency(other_rev, compact=True), subtitle=f"{format_percent((other_rev/total_rev)*100)} of total")
                 
             st.divider()
+            
+            # Interactive Country Drilldown Inspector
+            with st.container(border=True):
+                country_options = ["-- Global Overview (All Countries) --"] + sorted_countries["Country"].tolist()
+                selected_country = st.selectbox(
+                    "🔍 Interactive Country Deep Dive Inspector:",
+                    options=country_options,
+                    index=0,
+                    help="Select any individual country to inspect localized sales metrics, orders, customer count, and AOV."
+                )
+                
+            if selected_country != "-- Global Overview (All Countries) --":
+                cdetail = sorted_countries[sorted_countries["Country"] == selected_country].iloc[0]
+                c_rev = cdetail["TotalRevenue"] * rate
+                c_aov = cdetail["CountryAOV"] * rate
+                c_orders = int(cdetail["OrderCount"])
+                c_cust = int(cdetail["CustomerCount"])
+                c_units = int(cdetail["UnitsSold"])
+                c_share = (cdetail["TotalRevenue"] / total_rev) * 100
+                
+                st.markdown(f"#### 📍 Regional Performance: **{selected_country}**")
+                dk1, dk2, dk3, dk4, dk5 = st.columns(5)
+                with dk1:
+                    render_kpi_card(f"Revenue ({symbol})", format_currency(cdetail["TotalRevenue"], compact=True), subtitle=f"{c_share:.2f}% of Global")
+                with dk2:
+                    render_kpi_card("Order Volume", format_number(c_orders), subtitle="Completed transactions")
+                with dk3:
+                    render_kpi_card("Buyers", format_number(c_cust), subtitle="Unique customers")
+                with dk4:
+                    render_kpi_card(f"AOV ({symbol})", format_currency(cdetail["CountryAOV"]), subtitle="Avg per order")
+                with dk5:
+                    render_kpi_card("Units Sold", format_number(c_units), subtitle="Total items shipped")
+                st.divider()
+                
             col_chart, col_intl = st.columns([1.2, 0.8])
             
             with col_chart:
@@ -106,7 +140,7 @@ def render_page():
                 
             with col_intl:
                 st.markdown(f"##### 🌐 Top International Markets ({symbol})")
-                top_intl = intl_rows.head(8).copy()
+                top_intl = other_rows.head(8).copy()
                 top_intl["ScaledRevenue"] = top_intl["TotalRevenue"] * rate
                 top_intl["ScaledCountryAOV"] = top_intl["CountryAOV"] * rate
                 st.dataframe(
@@ -215,7 +249,67 @@ def render_page():
             summary_display["ScaledAvgMonetary"] = summary_display["AvgMonetary"] * rate
             summary_display["ScaledTotalRevenue"] = summary_display["TotalRevenue"] * rate
             
-            # Display Segment Summary Cards
+            # Interactive Segment Drilldown Selector
+            with st.container(border=True):
+                segment_options = ["-- All Customer Segments --"] + summary_df["Segment"].tolist()
+                selected_seg = st.selectbox(
+                    "🎯 Drill into Customer Segment:",
+                    options=segment_options,
+                    index=0,
+                    help="Select a specific customer tier to inspect cohort size, spend behavior, and export targeting lists."
+                )
+                
+            rfm_display = rfm_df.copy()
+            rfm_display["ScaledMonetary"] = rfm_display["Monetary"] * rate
+            
+            if selected_seg != "-- All Customer Segments --":
+                seg_summary = summary_display[summary_display["Segment"] == selected_seg].iloc[0]
+                seg_customers = rfm_display[rfm_display["Segment"] == selected_seg].sort_values("ScaledMonetary", ascending=False)
+                
+                # Dynamic Segment KPI Cards
+                sk1, sk2, sk3, sk4 = st.columns(4)
+                with sk1:
+                    render_kpi_card("Segment Buyers", format_number(int(seg_summary["CustomerCount"])), subtitle=f"{(int(seg_summary['CustomerCount'])/len(rfm_df)*100):.1f}% of total base")
+                with sk2:
+                    render_kpi_card(f"Avg Spend ({symbol})", format_currency(seg_summary["AvgMonetary"]), subtitle="Per buyer lifetime")
+                with sk3:
+                    render_kpi_card(f"Total Revenue ({symbol})", format_currency(seg_summary["TotalRevenue"], compact=True), subtitle="Cumulative cohort spend")
+                with sk4:
+                    render_kpi_card("Avg Recency", f"{seg_summary['AvgRecency']:.1f} days", subtitle=f"Avg {seg_summary['AvgFrequency']:.1f} orders")
+                    
+                # Actionable Business Strategy Insight
+                strat_text = ""
+                if "Champion" in selected_seg:
+                    strat_text = "🌟 **Recommended Action:** VIP appreciation rewards, preview access to new product drops, and exclusive referral incentives."
+                elif "Loyal" in selected_seg:
+                    strat_text = "🤝 **Recommended Action:** Upsell higher-margin SKUs, cross-sell related categories, and introduce loyalty tier milestones."
+                elif "Risk" in selected_seg or "Lost" in selected_seg or "Hibernating" in selected_seg:
+                    strat_text = "⚠️ **Recommended Action:** Win-back reactivation campaigns with personalized discount vouchers or customer satisfaction surveys."
+                else:
+                    strat_text = "🌱 **Recommended Action:** Post-purchase onboarding drip sequences and personalized recommendations to drive that crucial 2nd order."
+                st.info(strat_text)
+                
+                st.markdown(f"##### 📋 Top Customers in {selected_seg}")
+                st.dataframe(
+                    seg_customers[["CustomerID", "Recency", "Frequency", "ScaledMonetary"]].head(100).style.format({
+                        "CustomerID": "{:.0f}",
+                        "Recency": "{:.0f} days ago",
+                        "Frequency": "{:.0f} orders",
+                        "ScaledMonetary": f"{symbol}{{:,.2f}}"
+                    }),
+                    use_container_width=True
+                )
+                
+                csv_seg = seg_customers[["CustomerID", "Recency", "Frequency", "ScaledMonetary"]].to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label=f"📥 Download {selected_seg} Cohort for Campaigns (CSV)",
+                    data=csv_seg,
+                    file_name=f"customer_cohort_{selected_seg.lower().replace(' ', '_')}.csv",
+                    mime="text/csv"
+                )
+                st.divider()
+
+            # Display Global Segment Summary Table
             st.markdown(f"##### 👥 Segment Overview and Commercial Impact ({symbol})")
             st.dataframe(
                 summary_display[["Segment", "CustomerCount", "AvgRecency", "AvgFrequency", "ScaledAvgMonetary", "ScaledTotalRevenue"]].style.format({
@@ -229,10 +323,8 @@ def render_page():
             )
             
             st.divider()
-            # Scatter Plot of Frequency vs Monetary colored by Segment
-            rfm_display = rfm_df.copy()
-            rfm_display["ScaledMonetary"] = rfm_display["Monetary"] * rate
             
+            # Scatter Plot of Frequency vs Monetary colored by Segment
             fig_rfm = px.scatter(
                 rfm_display,
                 x="Recency",
@@ -255,7 +347,7 @@ def render_page():
             
             # Download RFM table
             csv_rfm = rfm_display.to_csv(index=False).encode("utf-8")
-            st.download_button("📥 Download Customer Segment Assignments (CSV)", csv_rfm, "customer_rfm_segments.csv", "text/csv")
+            st.download_button("📥 Download Complete Customer Segments (CSV)", csv_rfm, "customer_rfm_segments.csv", "text/csv")
         else:
             st.info("ℹ️ RFM segmentation requires customer transaction logs.")
 
