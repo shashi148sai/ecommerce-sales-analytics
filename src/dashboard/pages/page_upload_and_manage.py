@@ -404,7 +404,14 @@ def render_page():
             for field in fields_to_map:
                 field_meta = settings.FIELD_DEFINITIONS.get(field, {})
                 label = field_meta.get("label", field)
-                req_badge = "**(Required)**" if field_meta.get("required") else "*(Optional)*"
+                if field == "Description":
+                    req_badge = "**(Required)**"
+                elif field in ["UnitPrice", "SalesAmount"]:
+                    req_badge = "**(Required: Price or Total)**"
+                elif field in ["InvoiceNo", "StockCode", "Quantity", "InvoiceDate"]:
+                    req_badge = "*(Auto-Generated if Missing)*"
+                else:
+                    req_badge = "*(Optional)*"
                 desc = field_meta.get("description", "")
                 
                 # Determine default selected index
@@ -429,6 +436,8 @@ def render_page():
                     if selected_col != none_option and selected_col in df.columns:
                         sample_val = str(df[selected_col].dropna().iloc[0]) if not df[selected_col].dropna().empty else "None"
                         st.text(f"Sample: {sample_val[:25]}")
+                    elif field in ["InvoiceNo", "StockCode", "Quantity", "InvoiceDate"]:
+                        st.caption("⚡ Auto-synthesized if omitted")
                     else:
                         st.caption("Not mapped")
                         
@@ -444,7 +453,7 @@ def render_page():
             detected_curr = st.selectbox(
                 "Source Currency of Uploaded Prices:",
                 options=["GBP (£) - British Pounds (Canonical)", "INR (₹) - Indian Rupees", "USD ($) - US Dollars", "Other / Native"],
-                index=0 if st.session_state.get("dataset_source_currency") == "GBP" else 1
+                index=0 if st.session_state.get("dataset_source_currency") == "GBP" else (1 if st.session_state.get("dataset_source_currency") == "INR" else 2)
             )
             src_code = "GBP" if "GBP" in detected_curr else ("INR" if "INR" in detected_curr else "USD")
             st.session_state["dataset_source_currency"] = src_code
@@ -454,6 +463,8 @@ def render_page():
                 st.info(f"💡 Values will be dynamically converted to **INR (₹)** at the documented reference exchange rate (**₹{rate:.2f} per £1**).")
             elif src_code == "INR":
                 st.success("✅ Dataset is already in Indian Rupees (**₹**). Values will be presented directly without exchange rate multiplication.")
+            elif src_code == "USD":
+                st.info(f"💡 Values will be dynamically converted to **INR (₹)** at the documented reference exchange rate (**₹{rate:.2f} per $1**).")
             else:
                 st.caption(f"Native currency: {src_code}. Displayed using active currency symbol.")
                 
@@ -463,12 +474,17 @@ def render_page():
         st.markdown("#### ⚡ Launch Analytics Engine")
         st.caption("Calculates sales KPIs, product rankings, temporal patterns, and customer cohorts using PySpark & Spark SQL.")
         
-        # Check minimum requirements (Quantity + UnitPrice OR SalesAmount)
+        # Check minimum requirements: UnitPrice or SalesAmount is sufficient (Quantity defaults to 1)
         mapped_targets = set(user_mapping.values())
-        has_min_rev = ("Quantity" in mapped_targets and "UnitPrice" in mapped_targets) or ("SalesAmount" in mapped_targets)
+        has_min_rev = ("UnitPrice" in mapped_targets) or ("SalesAmount" in mapped_targets) or ("Quantity" in mapped_targets and "UnitPrice" in mapped_targets)
         
         if not has_min_rev:
-            st.warning("⚠️ To run the sales analytics engine, please map either **(Quantity + Unit Price)** or **Total Sales Amount** above.")
+            st.warning("⚠️ To run the sales analytics engine, please map **Unit Selling Price** (or Total Sales Amount) to your price column above.")
+        else:
+            if "Quantity" not in mapped_targets:
+                st.info("💡 **Single-Unit Transaction Mode:** No quantity column mapped. Quantity will automatically default to `1` per purchase line.")
+            if "InvoiceNo" not in mapped_targets:
+                st.caption("ℹ️ Sequential transaction IDs (`INV-00001`, `INV-00002`...) will be assigned automatically.")
             
         exec_col1, exec_col2 = st.columns([1.5, 1])
         with exec_col1:
