@@ -60,20 +60,22 @@ def render_page():
         st.caption("Analyzes how commercial revenue is distributed geographically across domestic and international markets.")
         
         if not country_df.empty:
-            uk_row = country_df[country_df["Country"] == "United Kingdom"]
-            intl_rows = country_df[country_df["Country"] != "United Kingdom"].copy()
+            sorted_countries = country_df.sort_values("TotalRevenue", ascending=False)
+            top_country = sorted_countries.iloc[0]["Country"]
+            primary_row = sorted_countries[sorted_countries["Country"] == top_country]
+            other_rows = sorted_countries[sorted_countries["Country"] != top_country].copy()
             
             total_rev = country_df["TotalRevenue"].sum()
-            uk_rev = uk_row["TotalRevenue"].iloc[0] if not uk_row.empty else 0.0
-            intl_rev = intl_rows["TotalRevenue"].sum()
+            primary_rev = primary_row["TotalRevenue"].iloc[0] if not primary_row.empty else 0.0
+            other_rev = other_rows["TotalRevenue"].sum()
             
             c1, c2, c3 = st.columns(3)
             with c1:
                 render_kpi_card("Total Global Revenue", format_currency(total_rev, compact=True), subtitle=f"Across {len(country_df)} countries")
             with c2:
-                render_kpi_card("Domestic Market Revenue", format_currency(uk_rev, compact=True), subtitle=f"{format_percent((uk_rev/total_rev)*100)} of total")
+                render_kpi_card(f"Primary Market ({top_country})", format_currency(primary_rev, compact=True), subtitle=f"{format_percent((primary_rev/total_rev)*100)} of total")
             with c3:
-                render_kpi_card("International Markets", format_currency(intl_rev, compact=True), subtitle=f"{format_percent((intl_rev/total_rev)*100)} of total")
+                render_kpi_card("International Markets", format_currency(other_rev, compact=True), subtitle=f"{format_percent((other_rev/total_rev)*100)} of total")
                 
             st.divider()
             col_chart, col_intl = st.columns([1.2, 0.8])

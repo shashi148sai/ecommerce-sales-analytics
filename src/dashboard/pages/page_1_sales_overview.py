@@ -81,13 +81,11 @@ def render_page():
             selected_qtr = st.selectbox("📆 Financial Quarter:", avail_qtrs, index=0)
         with f_col3:
             src_curr = st.session_state.get("dataset_source_currency", "GBP")
-            st.caption(f"**Presentation Currency:** `{code} ({symbol})` | **Multiplier:** `{rate:.2f}x`")
+            st.markdown(f"**Presentation:** `{code} ({symbol})` &nbsp;|&nbsp; **Source:** `{src_curr}`")
             if code == "INR" and src_curr == "GBP":
-                st.caption(f"*(Converted dynamically from canonical GBP at reference rate 1 GBP = ₹{rate:.2f})*")
-            elif code == "INR" and src_curr == "INR":
-                st.caption("*(Dataset is already native Indian Rupees ₹ — no conversion applied)*")
+                st.caption(f"Conversion Reference Rate: `1 GBP = ₹{rate:.2f}`")
             else:
-                st.caption(f"*(Source dataset currency: {src_curr})*")
+                st.caption("Standard 1:1 Native Valuation")
                 
     filtered_monthly = fy_filtered if selected_qtr == "All Quarters" else fy_filtered[fy_filtered["Indian_Quarter"] == selected_qtr]
 
@@ -245,11 +243,11 @@ def render_page():
         
     with sc3:
         with st.container(border=True):
-            st.markdown("##### 🛡️ Governance & Policy")
-            st.write(f"- **Active Currency:** {code} ({symbol})")
-            st.write(f"- **Source Currency:** {st.session_state.get('dataset_source_currency', 'GBP')}")
-            st.write("- **Cost Profile:** ₹0 Out-of-Pocket Local Execution")
-            st.write("- **Profit Claim:** *None (COGS absent in dataset)*")
+            st.markdown("##### 📥 Executive Export & Policy")
+            st.write(f"- **Valuation Currency:** {code} ({symbol})")
+            st.write(f"- **Execution Engine:** Apache Spark 3.5 SQL")
+            st.write("- **Storage Architecture:** Local Lakehouse Partitioning")
+            st.write("- **Cost Profile:** ₹0 Cloud-Safe Execution")
             
             # Download KPI summary CSV
             kpi_df = pd.DataFrame([kpis])

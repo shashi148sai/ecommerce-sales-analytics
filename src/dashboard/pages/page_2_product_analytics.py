@@ -48,42 +48,43 @@ def render_page():
     with tab1:
         st.subheader("Top Revenue Drivers")
         st.caption("Identifies the products generating the highest aggregate commercial revenue.")
-        col_ctrl, col_chart = st.columns([1, 3])
         
-        with col_ctrl:
-            with st.container(border=True):
-                top_n = st.slider("Display Count", min_value=5, max_value=20, value=10, key="rev_slider")
+        with st.container(border=True):
+            col_s1, col_s2, col_s3 = st.columns([1.5, 1.5, 2])
+            with col_s1:
+                top_n = st.slider("Display Count", min_value=5, max_value=25, value=10, key="rev_slider")
+            with col_s2:
                 show_data = st.checkbox("Show Table View", value=True, key="rev_table_chk")
-                st.caption(f"Active Currency: `{code} ({symbol})`")
+            with col_s3:
+                st.caption(f"Active Valuation: `{code} ({symbol})` | Sorted by Total Revenue")
             
-        with col_chart:
-            display_df = top_rev_df.head(top_n).copy()
-            display_df["ScaledRevenue"] = display_df["TotalRevenue"] * rate
-            display_df["ScaledAvgUnitPrice"] = display_df["AvgUnitPrice"] * rate
-            display_df["ShortDesc"] = display_df["Description"].apply(
-                lambda x: str(x)[:30] + "..." if len(str(x)) > 32 else str(x)
-            )
-            fig = px.bar(
-                display_df,
-                x="ScaledRevenue",
-                y="ShortDesc",
-                orientation="h",
-                text="ScaledRevenue",
-                color="ScaledRevenue",
-                color_continuous_scale="Viridis",
-                labels={"ScaledRevenue": f"Total Revenue ({symbol})", "ShortDesc": ""},
-                title=f"Top {top_n} Products by Total Revenue ({symbol})"
-            )
-            fig.update_traces(texttemplate=f"{symbol}%{{x:,.0f}}", textposition="inside")
-            fig.update_layout(
-                yaxis=dict(autorange="reversed", automargin=True, title=""),
-                xaxis=dict(title=f"Revenue ({symbol})", tickprefix=symbol, automargin=True),
-                coloraxis_showscale=False,
-                margin=dict(l=20, r=30, t=60, b=40)
-            )
-            apply_chart_theme(fig)
-            st.plotly_chart(fig, use_container_width=True)
-            
+        display_df = top_rev_df.head(top_n).copy()
+        display_df["ScaledRevenue"] = display_df["TotalRevenue"] * rate
+        display_df["ScaledAvgUnitPrice"] = display_df["AvgUnitPrice"] * rate
+        display_df["ShortDesc"] = display_df["Description"].apply(
+            lambda x: str(x)[:36] + "..." if len(str(x)) > 38 else str(x)
+        )
+        fig = px.bar(
+            display_df,
+            x="ScaledRevenue",
+            y="ShortDesc",
+            orientation="h",
+            text="ScaledRevenue",
+            color="ScaledRevenue",
+            color_continuous_scale="Viridis",
+            labels={"ScaledRevenue": f"Total Revenue ({symbol})", "ShortDesc": ""},
+            title=f"Top {top_n} Products by Total Revenue ({symbol})"
+        )
+        fig.update_traces(texttemplate=f"{symbol}%{{x:,.0f}}", textposition="inside")
+        fig.update_layout(
+            yaxis=dict(autorange="reversed", automargin=True, title=""),
+            xaxis=dict(title=f"Revenue ({symbol})", tickprefix=symbol, automargin=True),
+            coloraxis_showscale=False,
+            margin=dict(l=20, r=30, t=60, b=40)
+        )
+        apply_chart_theme(fig)
+        st.plotly_chart(fig, use_container_width=True)
+        
         if show_data:
             st.dataframe(
                 display_df[["StockCode", "Description", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"]].style.format({
@@ -101,37 +102,38 @@ def render_page():
     with tab2:
         st.subheader("High Volume Movers")
         st.caption("Highlights items with the greatest physical units shipped to identify inventory velocity.")
-        col_ctrl2, col_chart2 = st.columns([1, 3])
         
-        with col_ctrl2:
-            with st.container(border=True):
-                top_n_qty = st.slider("Display Count", min_value=5, max_value=20, value=10, key="qty_slider")
+        with st.container(border=True):
+            col_q1, col_q2 = st.columns([1.5, 3.5])
+            with col_q1:
+                top_n_qty = st.slider("Display Count", min_value=5, max_value=25, value=10, key="qty_slider")
+            with col_q2:
+                st.caption("Sorted by physical units sold across all completed transactions")
             
-        with col_chart2:
-            display_qty_df = top_qty_df.head(top_n_qty).copy()
-            display_qty_df["ShortDesc"] = display_qty_df["Description"].apply(
-                lambda x: str(x)[:30] + "..." if len(str(x)) > 32 else str(x)
-            )
-            fig_qty = px.bar(
-                display_qty_df,
-                x="UnitsSold",
-                y="ShortDesc",
-                orientation="h",
-                text="UnitsSold",
-                color="UnitsSold",
-                color_continuous_scale="Teal",
-                labels={"UnitsSold": "Units Sold", "ShortDesc": ""},
-                title=f"Top {top_n_qty} Products by Physical Units Sold"
-            )
-            fig_qty.update_traces(texttemplate="%{x:,}", textposition="inside")
-            fig_qty.update_layout(
-                yaxis=dict(autorange="reversed", automargin=True, title=""),
-                xaxis=dict(title="Physical Units Sold", automargin=True),
-                coloraxis_showscale=False,
-                margin=dict(l=20, r=30, t=60, b=40)
-            )
-            apply_chart_theme(fig_qty)
-            st.plotly_chart(fig_qty, use_container_width=True)
+        display_qty_df = top_qty_df.head(top_n_qty).copy()
+        display_qty_df["ShortDesc"] = display_qty_df["Description"].apply(
+            lambda x: str(x)[:36] + "..." if len(str(x)) > 38 else str(x)
+        )
+        fig_qty = px.bar(
+            display_qty_df,
+            x="UnitsSold",
+            y="ShortDesc",
+            orientation="h",
+            text="UnitsSold",
+            color="UnitsSold",
+            color_continuous_scale="Teal",
+            labels={"UnitsSold": "Units Sold", "ShortDesc": ""},
+            title=f"Top {top_n_qty} Products by Physical Units Sold"
+        )
+        fig_qty.update_traces(texttemplate="%{x:,}", textposition="inside")
+        fig_qty.update_layout(
+            yaxis=dict(autorange="reversed", automargin=True, title=""),
+            xaxis=dict(title="Physical Units Sold", automargin=True),
+            coloraxis_showscale=False,
+            margin=dict(l=20, r=30, t=60, b=40)
+        )
+        apply_chart_theme(fig_qty)
+        st.plotly_chart(fig_qty, use_container_width=True)
             
     with tab3:
         st.subheader("Search Product Catalog")

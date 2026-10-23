@@ -518,3 +518,209 @@ def apply_chart_theme(fig: go.Figure, title: str = "") -> go.Figure:
         )
     )
     return fig
+
+
+# ------------------------------------------------------------------------------
+# Professional Enterprise SaaS Theme & Layout Components
+# ------------------------------------------------------------------------------
+def inject_professional_styles():
+    """Injects enterprise CSS styling to transform the Streamlit dashboard into a sleek SaaS website."""
+    css = """<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.main .block-container {
+    max-width: 1280px;
+    padding-top: 1.25rem;
+    padding-bottom: 3rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+h1 {
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: #0F172A !important;
+    font-size: 2.1rem !important;
+    margin-bottom: 0.25rem !important;
+}
+
+h2, h3 {
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    color: #1E293B !important;
+}
+
+h4, h5 {
+    font-weight: 600 !important;
+    color: #334155 !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 12px !important;
+    border: 1px solid #E2E8F0 !important;
+    background: #FFFFFF !important;
+    box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02) !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border-color: #CBD5E1 !important;
+    box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.03) !important;
+}
+
+[data-testid="stMetric"] {
+    background: transparent !important;
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 0.725rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: #64748B !important;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 1.75rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: #0F172A !important;
+    line-height: 1.2 !important;
+}
+
+[data-testid="stMetricDelta"] {
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    border-radius: 9999px !important;
+    padding: 2px 8px !important;
+    margin-top: 4px !important;
+}
+
+.stButton > button[kind="primary"], [data-testid="stBaseButton-primary"] {
+    background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9px !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1.2rem !important;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25) !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.stButton > button[kind="primary"]:hover, [data-testid="stBaseButton-primary"]:hover {
+    background: linear-gradient(135deg, #172554 0%, #1D4ED8 100%) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35) !important;
+}
+
+.stButton > button[kind="secondary"], [data-testid="stBaseButton-secondary"] {
+    border: 1px solid #CBD5E1 !important;
+    background: #FFFFFF !important;
+    color: #1E293B !important;
+    border-radius: 9px !important;
+    font-weight: 600 !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.stButton > button[kind="secondary"]:hover, [data-testid="stBaseButton-secondary"]:hover {
+    border-color: #94A3B8 !important;
+    background: #F8FAFC !important;
+    color: #0F172A !important;
+    transform: translateY(-1px) !important;
+}
+
+[data-testid="stDownloadButton"] > button {
+    border-radius: 9px !important;
+    font-weight: 600 !important;
+    border: 1px solid #CBD5E1 !important;
+    background: #FFFFFF !important;
+    color: #1E293B !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+[data-testid="stDownloadButton"] > button:hover {
+    background: #F8FAFC !important;
+    border-color: #94A3B8 !important;
+    transform: translateY(-1px) !important;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    gap: 6px !important;
+    background-color: #F1F5F9 !important;
+    padding: 5px !important;
+    border-radius: 10px !important;
+    border: 1px solid #E2E8F0 !important;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab"] {
+    border-radius: 7px !important;
+    padding: 6px 14px !important;
+    font-weight: 600 !important;
+    font-size: 0.875rem !important;
+    color: #64748B !important;
+    border: none !important;
+    background-color: transparent !important;
+    transition: all 0.15s ease !important;
+}
+
+[data-testid="stTabs"] [aria-selected="true"] {
+    background-color: #FFFFFF !important;
+    color: #1E3A8A !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #F8FAFC !important;
+    border-right: 1px solid #E2E8F0 !important;
+}
+
+[data-testid="stAlert"] {
+    border-radius: 10px !important;
+    border: 1px solid rgba(0,0,0,0.06) !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+}
+</style>"""
+    st.markdown(css, unsafe_allow_html=True)
+
+
+def render_header_bar():
+    """Renders a sleek enterprise top navigation bar with system status badges."""
+    symbol, code, _ = get_active_currency_config()
+    meta = load_pipeline_metadata()
+    dataset_name = meta.get("dataset_file", "Sample Dataset") if meta else "Sample Dataset"
+    
+    with st.container():
+        hl, hr = st.columns([1.5, 2.5])
+        with hl:
+            st.markdown(
+                "### ⚡ **SalesPulse** `ENTERPRISE`",
+                help="SalesPulse Analytics - Enterprise Big Data & Cloud Sales Platform"
+            )
+        with hr:
+            status_text = (
+                f"`● Spark Catalyst Ready` &nbsp;|&nbsp; "
+                f"`🛡️ ₹0 Cloud Safe` &nbsp;|&nbsp; "
+                f"`💱 {code} ({symbol})` &nbsp;|&nbsp; "
+                f"`📂 {dataset_name}`"
+            )
+            st.markdown(
+                f"<div style='text-align: right; padding-top: 8px;'>{status_text}</div>",
+                unsafe_allow_html=True
+            )
+        st.markdown("<hr style='margin: 0.1rem 0 1.25rem 0; border: none; border-top: 1px solid #E2E8F0;' />", unsafe_allow_html=True)
+
+
+def render_footer():
+    """Renders a sleek, professional SaaS footer with architecture and credentials."""
+    st.markdown("<hr style='margin: 3.5rem 0 1.5rem 0; border: none; border-top: 1px solid #E2E8F0;' />", unsafe_allow_html=True)
+    f_col1, f_col2, f_col3 = st.columns([1.5, 2, 1.5])
+    with f_col1:
+        st.caption("⚡ **SalesPulse Analytics Enterprise**\n\nBig Data Analytics (BDA) & Cloud Computing (CC)")
+    with f_col2:
+        st.caption("Powered by **Apache Spark 3.5**, **Spark SQL**, **Parquet Lakehouse**, and **Amazon S3**\n\nVerified ₹0 Out-of-Pocket Local Execution Mode")
+    with f_col3:
+        st.caption("Localization: **Indian Rupees (₹)** • **DD-MM-YYYY** • **Lakh/Crore**\n\nSalesPulse Analytics © 2026")

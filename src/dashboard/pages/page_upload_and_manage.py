@@ -56,23 +56,26 @@ def render_page():
     symbol, code, rate = get_active_currency_config()
     
     # --------------------------------------------------------------------------
-    # Step Indicator Banner
+    # Step Indicator Banner (Sleek SaaS Wizard Breadcrumbs)
     # --------------------------------------------------------------------------
+    step_num = st.session_state.get("wizard_step", 1)
+    st.progress(step_num / 4.0)
+    
     step_cols = st.columns(4)
     steps_meta = [
-        ("1️⃣ Choose Input", 1),
-        ("2️⃣ Preview & Validate", 2),
-        ("3️⃣ Match Columns & Analyze", 3),
-        ("4️⃣ Results & Export", 4)
+        ("1. Ingestion Source", 1),
+        ("2. Health & Preview", 2),
+        ("3. Auto-Mapping & Engine", 3),
+        ("4. Insights & Exports", 4)
     ]
     for idx, (title, s_num) in enumerate(steps_meta):
         with step_cols[idx]:
-            if st.session_state["wizard_step"] == s_num:
-                st.info(f"**{title}** (Active)")
-            elif st.session_state["wizard_step"] > s_num:
-                st.success(f"**{title}** ✅")
+            if step_num == s_num:
+                st.markdown(f"**🔷 {title}** *(Active)*")
+            elif step_num > s_num:
+                st.markdown(f"**✅ {title}**")
             else:
-                st.text(title)
+                st.caption(f"⚪ {title}")
                 
     st.divider()
     

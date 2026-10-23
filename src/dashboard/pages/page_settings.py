@@ -103,11 +103,11 @@ def render_page():
                 st.text_input("Shuffle Partitions", value=settings.SPARK_SQL_SHUFFLE_PARTITIONS, disabled=True)
                 
             st.info(
-                "💡 **Academic Note for Viva Examination:**\n\n"
-                "In local mode, PySpark runs in JVM worker threads (`local[2]`). "
-                "Because PySpark uses lazy execution and Catalyst logical query optimization, "
-                "the exact same transformations and Spark SQL code run distributed across multiple worker nodes "
-                "in a cloud cluster (such as AWS EMR) with zero code rewrites."
+                "⚡ **Distributed Execution Architecture:**\n\n"
+                "PySpark runs locally utilizing JVM worker threads (`local[2]`) with in-memory execution. "
+                "Leveraging the Catalyst query optimizer and lazy DAG evaluation, "
+                "the exact same transformation pipeline and Spark SQL models scale seamlessly to cloud clusters "
+                "(such as Amazon EMR or Databricks) with zero code modifications."
             )
             
     # --------------------------------------------------------------------------
