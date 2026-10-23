@@ -23,6 +23,9 @@ from src.dashboard.pages import (
     page_data_quality_and_reports as p_quality,
     page_settings as p_settings
 )
+import importlib
+for _mod in [p0, p_upload, p1, p2, p3, p4, p_quality, p_settings]:
+    importlib.reload(_mod)
 
 # Page configuration
 st.set_page_config(

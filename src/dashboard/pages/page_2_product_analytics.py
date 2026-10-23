@@ -209,18 +209,19 @@ def render_page():
             
             col_cat_pie, col_cat_tbl = st.columns([1, 1])
             with col_cat_pie:
+                cat_colors = [
+                    CHART_COLORS.get("primary", "#1E3A8A"),
+                    CHART_COLORS.get("secondary", "#0D9488"),
+                    CHART_COLORS.get("accent", "#D97706"),
+                    CHART_COLORS.get("purple", "#7C3AED"),
+                    CHART_COLORS.get("success", "#059669")
+                ]
                 fig_cat = px.pie(
                     cat_summary,
                     names="Category",
                     values="ScaledRevenue",
                     hole=0.45,
-                    color_discrete_sequence=[
-                        CHART_COLORS["primary"],
-                        CHART_COLORS["secondary"],
-                        CHART_COLORS["accent"],
-                        CHART_COLORS["purple"],
-                        CHART_COLORS["success"]
-                    ],
+                    color_discrete_sequence=cat_colors,
                     title=f"Revenue Distribution by Department ({symbol})"
                 )
                 fig_cat.update_traces(textinfo="percent+label")
