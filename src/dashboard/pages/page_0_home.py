@@ -6,10 +6,13 @@ guided 3-step workflow, template downloads, and clear dataset status indicators.
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from config import settings
 from src.dashboard.utils import (
     load_kpis,
     load_pipeline_metadata,
+    load_monthly_trends,
+    apply_chart_theme,
     get_csv_template,
     format_number,
     format_currency,
@@ -110,8 +113,6 @@ def render_page():
                 st.metric("CATALOG SKUs", format_number(kpis.get("distinct_products")))
                 
             # Interactive sparkline overview
-            from src.dashboard.utils import load_monthly_trends, apply_chart_theme
-            import plotly.express as px
             monthly_trends = load_monthly_trends()
             if not monthly_trends.empty:
                 st.write("")

@@ -12,6 +12,7 @@ from src.dashboard.utils import (
     load_top_products_quantity,
     format_currency,
     format_number,
+    render_kpi_card,
     get_active_currency_config,
     apply_chart_theme,
     CHART_COLORS

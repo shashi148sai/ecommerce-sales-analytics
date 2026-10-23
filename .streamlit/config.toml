@@ -1,6 +1,6 @@
 [client]
 toolbarMode = "minimal"
-showErrorDetails = false
+showErrorDetails = "stacktrace"
 
 [server]
 headless = true
