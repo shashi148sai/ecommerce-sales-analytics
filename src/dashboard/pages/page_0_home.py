@@ -109,9 +109,8 @@ def render_page():
                 else:
                     st.markdown(f"##### ✅ Active Dataset: **{meta.get('dataset_file', 'OnlineRetail.csv')}**")
                 st.caption(
-                    f"**{format_number(meta.get('total_records_ingested', 0))}** records processed • "
-                    f"Throughput: **{meta.get('throughput_rows_per_second', 0):,.1f} rows/s** • "
-                    f"Storage: **Local Lakehouse (Parquet)**"
+                    f"**{format_number(meta.get('total_records_ingested', 0))}** transactions analyzed • "
+                    f"Reporting Currency: **{code} ({symbol})**"
                 )
             with btn_col:
                 if st.button("Open Full Dashboard ➔", type="primary", use_container_width=True):

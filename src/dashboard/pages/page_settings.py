@@ -1,32 +1,27 @@
 """
-SalesPulse Analytics - Settings & System Configuration Page
-Allows users to configure presentation currency (INR default vs GBP), reference exchange rates,
-Indian localization preferences, and inspect Big Data & Cloud engine profiles.
+SalesPulse Analytics - Application Settings & Preferences
+Clean, user-centric preferences for display currency, exchange rates, and quick dataset switching.
 """
 
 import streamlit as st
+import json
 from config import settings
-from src.dashboard.utils import get_active_currency_config
+from src.dashboard.utils import get_active_currency_config, load_kpis
+from src.processing.pipeline import run_pipeline
 
 
 def render_page():
     st.title("⚙️ Application Settings & Preferences")
-    st.caption("Manage currency presentation, reference exchange rates, Indian localization, and system runtime parameters.")
+    st.caption("Customize display currency, adjust reference exchange rates, or switch sample datasets.")
     
     symbol, code, rate = get_active_currency_config()
+    src_curr = st.session_state.get("dataset_source_currency", "USD")
     
-    tab1, tab2, tab3 = st.tabs(["💱 Currency & Localization", "⚡ Big Data & Spark Profile", "☁️ Cloud Storage (₹0 Safety)"])
+    tab1, tab2 = st.tabs(["💱 Currency & Localization", "⚡ Data & Application Actions"])
     
-    # --------------------------------------------------------------------------
-    # Tab 1: Currency & Localization
-    # --------------------------------------------------------------------------
     with tab1:
         st.subheader("Presentation Currency & Exchange Rate")
-        st.markdown(
-            "SalesPulse Analytics defaults to **Indian Rupees (₹)** for presentation. "
-            "Canonical British e-commerce datasets denominated in **GBP (£)** are converted dynamically "
-            "using a transparently documented reference exchange rate."
-        )
+        st.caption("Select your preferred reporting currency. Figures across all dashboards update dynamically.")
         
         with st.container(border=True):
             col_c1, col_c2 = st.columns(2)
@@ -46,16 +41,6 @@ def render_page():
                     help="All dashboard KPI cards, charts, and table summaries adapt to this selection."
                 )
                 
-                if curr_option.startswith("INR"):
-                    st.session_state["currency_mode"] = "INR (₹)"
-                    st.session_state["active_currency_symbol"] = "₹"
-                elif curr_option.startswith("USD"):
-                    st.session_state["currency_mode"] = "USD ($)"
-                    st.session_state["active_currency_symbol"] = "$"
-                else:
-                    st.session_state["currency_mode"] = "GBP (£)"
-                    st.session_state["active_currency_symbol"] = "£"
-                    
             with col_c2:
                 col_r1, col_r2 = st.columns(2)
                 with col_r1:
@@ -68,7 +53,6 @@ def render_page():
                         format="%.2f",
                         help="Exchange rate for USD-denominated transaction datasets."
                     )
-                    st.session_state["usd_conversion_rate"] = custom_usd
                 with col_r2:
                     custom_rate = st.number_input(
                         "Reference Rate (1 GBP in ₹):",
@@ -79,80 +63,101 @@ def render_page():
                         format="%.2f",
                         help="Exchange rate for British pound datasets."
                     )
+                    
+            st.write("")
+            col_apply, col_reset = st.columns([1.5, 3])
+            with col_apply:
+                if st.button("💾 Apply Currency Changes", type="primary", use_container_width=True):
+                    if curr_option.startswith("INR"):
+                        st.session_state["currency_mode"] = "INR (₹)"
+                        st.session_state["active_currency_symbol"] = "₹"
+                    elif curr_option.startswith("USD"):
+                        st.session_state["currency_mode"] = "USD ($)"
+                        st.session_state["active_currency_symbol"] = "$"
+                    else:
+                        st.session_state["currency_mode"] = "GBP (£)"
+                        st.session_state["active_currency_symbol"] = "£"
+                    st.session_state["usd_conversion_rate"] = custom_usd
                     st.session_state["inr_conversion_rate"] = custom_rate
+                    st.success("✅ Currency settings applied successfully across all dashboard views!")
+                    st.rerun()
+            with col_reset:
+                st.caption(f"Active: `{st.session_state.get('currency_mode', 'INR (₹)')}` • Source: `{src_curr}`")
                 
-            st.divider()
-            
-            # Sourced Disclosure
-            src_curr = st.session_state.get("dataset_source_currency", "USD")
-            active_rate = custom_usd if src_curr == "USD" else custom_rate
-            st.info(
-                f"**Currency Policy Disclosure:**\n\n"
-                f"- **Active Presentation Currency:** `{st.session_state['currency_mode']}`\n"
-                f"- **Dataset Source Currency:** `{src_curr}`\n"
-                f"- **Active Exchange Rate:** `1 {src_curr} = ₹{active_rate:.2f}` (Reference Date: {settings.REFERENCE_RATE_DATE})\n"
-                f"- **Conversion Methodology:** When presentation is INR, source figures are converted via fixed reference rates. "
-                f"If the dataset is already native INR, no conversion multiplier is applied. "
-                f"This transparent fixed reference rate preserves ₹0 out-of-pocket costs by avoiding paid live currency APIs."
-            )
-            
         st.divider()
-        st.subheader("Indian Business Conventions")
+        st.subheader("Regional & Business Conventions")
         with st.container(border=True):
             i1, i2, i3 = st.columns(3)
             with i1:
-                st.markdown("**Locale & Region:**")
-                st.text(f"Locale: {settings.LOCALE}\nTimezone: {settings.TIMEZONE}")
+                st.markdown("**Locale & Region**")
+                st.write("English (India) • IST (UTC+05:30)")
             with i2:
-                st.markdown("**Date Display Format:**")
-                st.text("Format: DD-MM-YYYY\nWeek Start: Monday")
+                st.markdown("**Date Format**")
+                st.write("DD-MM-YYYY (Standard Indian)")
             with i3:
-                st.markdown("**Fiscal Year Cycle:**")
-                st.text("Cycle: 1 April – 31 March\nQuarters: Q1, Q2, Q3, Q4")
+                st.markdown("**Fiscal Year Cycle**")
+                st.write("1 April – 31 March (Indian FY)")
                 
-    # --------------------------------------------------------------------------
-    # Tab 2: Big Data & Spark Profile
-    # --------------------------------------------------------------------------
     with tab2:
-        st.subheader("Apache Spark Engine Profile")
-        st.caption("Inspect PySpark master configuration, driver memory, and Catalyst query optimizer settings.")
+        st.subheader("Dataset Quick Actions")
+        st.caption("Switch between sample datasets or clear application caches with a single click.")
         
         with st.container(border=True):
-            p1, p2, p3 = st.columns(3)
-            with p1:
-                st.text_input("PySpark Master Node", value=settings.SPARK_MASTER, disabled=True)
-            with p2:
-                st.text_input("Driver Memory Allocation", value=settings.SPARK_DRIVER_MEMORY, disabled=True)
-            with p3:
-                st.text_input("Shuffle Partitions", value=settings.SPARK_SQL_SHUFFLE_PARTITIONS, disabled=True)
-                
-            st.info(
-                "⚡ **Distributed Execution Architecture:**\n\n"
-                "PySpark runs locally utilizing JVM worker threads (`local[2]`) with in-memory execution. "
-                "Leveraging the Catalyst query optimizer and lazy DAG evaluation, "
-                "the exact same transformation pipeline and Spark SQL models scale seamlessly to cloud clusters "
-                "(such as Amazon EMR or Databricks) with zero code modifications."
-            )
+            st.markdown("##### 🧪 Fast Dataset Switcher")
+            st.caption("Instantly load and analyze included business datasets:")
             
-    # --------------------------------------------------------------------------
-    # Tab 3: Cloud Storage & ₹0 Safety
-    # --------------------------------------------------------------------------
-    with tab3:
-        st.subheader("Cloud Storage Architecture & ₹0 Safety Constraints")
-        st.caption("SalesPulse is architected for Amazon S3 cloud replication while strictly enforcing offline ₹0 safety during local development.")
-        
-        with st.container(border=True):
-            st.write(f"- **Active Storage Mode:** `{settings.STORAGE_MODE.upper()}` (Local Disk Persistence)")
-            st.write(f"- **Target S3 Bucket Name:** `{settings.AWS_S3_BUCKET}`")
-            st.write(f"- **AWS Region:** `{settings.AWS_REGION}`")
-            st.write("- **Cloud Operations:** Disabled by default to guarantee ₹0 out-of-pocket expense.")
-            st.write("- **Security:** AWS credentials are never committed to version control or requested in the UI.")
-            
+            d_col1, d_col2 = st.columns(2)
+            with d_col1:
+                if st.button("🛍️ Load Shopping Trends Data (3,900 Rows)", use_container_width=True):
+                    shop_file = getattr(settings, "SAMPLE_SHOPPING_FILE", settings.RAW_DATA_DIR / "shopping.csv")
+                    if shop_file.exists():
+                        with st.spinner("Processing Consumer Shopping dataset..."):
+                            st.session_state["active_dataset_type"] = "shopping"
+                            st.session_state["dataset_source_currency"] = "USD"
+                            run_pipeline(input_file_path=shop_file)
+                            st.session_state["nav_selection"] = "💼 Sales Overview"
+                            st.rerun()
+                    else:
+                        st.warning("Shopping dataset file not found at data/raw/shopping.csv.")
+            with d_col2:
+                if st.button("🛒 Load Retail Transactions Data (540K Rows)", use_container_width=True):
+                    retail_file = settings.DEFAULT_RAW_FILE
+                    if retail_file.exists():
+                        with st.spinner("Processing Retail dataset..."):
+                            st.session_state["active_dataset_type"] = "canonical"
+                            st.session_state["dataset_source_currency"] = "GBP"
+                            run_pipeline(input_file_path=retail_file)
+                            st.session_state["nav_selection"] = "💼 Sales Overview"
+                            st.rerun()
+                    else:
+                        st.warning("OnlineRetail.csv not found at data/raw/.")
+                        
         st.divider()
-        if st.button("🔄 Reset Application Session State"):
-            st.session_state.clear()
-            st.success("Session state cleared. Reloading application...")
-            st.rerun()
+        st.subheader("System & Cache Maintenance")
+        with st.container(border=True):
+            m_col1, m_col2, m_col3 = st.columns(3)
+            with m_col1:
+                if st.button("🔄 Clear Cache & Reload", use_container_width=True):
+                    st.cache_data.clear()
+                    st.success("Cache cleared! Reloading...")
+                    st.rerun()
+            with m_col2:
+                if st.button("🗑️ Reset Settings to Default", use_container_width=True):
+                    st.session_state["currency_mode"] = "INR (₹)"
+                    st.session_state["active_currency_symbol"] = "₹"
+                    st.session_state["usd_conversion_rate"] = 84.00
+                    st.session_state["inr_conversion_rate"] = settings.DEFAULT_GBP_TO_INR_RATE
+                    st.success("Settings reset to defaults.")
+                    st.rerun()
+            with m_col3:
+                kpis = load_kpis()
+                st.download_button(
+                    label="📥 Download Summary (JSON)",
+                    data=json.dumps(kpis, indent=4),
+                    file_name="salespulse_kpis_summary.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
 
 
 if __name__ == "__main__":

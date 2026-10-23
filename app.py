@@ -82,6 +82,10 @@ with st.sidebar:
     else:
         st.warning("○ **Active:** No Dataset Loaded")
         
+    if st.button("🔄 Switch / Import Dataset", key="side_switch_ds", use_container_width=True):
+        st.session_state["nav_selection"] = "📥 Upload & Manage Data"
+        st.rerun()
+        
     st.divider()
     
     # Navigation Pages (8 Sections matching requirements)
@@ -157,11 +161,7 @@ with st.sidebar:
         st.caption("Native INR Dataset `(1:1 direct)`")
         
     st.divider()
-    st.caption(
-        f"**Engine:** PySpark 3.5 (Catalyst)\n\n"
-        f"**Storage:** {settings.STORAGE_MODE.upper()} (₹0 Local Safety)\n\n"
-        f"SalesPulse Analytics © 2026"
-    )
+    st.caption("SalesPulse Analytics © 2026")
 
 # ------------------------------------------------------------------------------
 # Main Page Body: Global Header + Active View + Footer

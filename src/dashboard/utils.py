@@ -748,30 +748,30 @@ header[data-testid="stHeader"] {
 
 
 def render_header_bar():
-    """Renders a sleek enterprise top navigation bar with system status badges."""
+    """Renders a sleek enterprise top navigation bar with clean branding and real action buttons."""
     symbol, code, _ = get_active_currency_config()
     meta = load_pipeline_metadata()
-    dataset_name = meta.get("dataset_file", "Sample Dataset") if meta else "Sample Dataset"
+    dataset_name = meta.get("dataset_file", "No Dataset Loaded") if meta else "No Dataset Loaded"
     
     with st.container():
-        hl, hr = st.columns([1.5, 2.5])
-        with hl:
+        col_logo, col_info, col_btn_import, col_btn_refresh = st.columns([2.2, 2.8, 1.2, 0.9])
+        with col_logo:
+            st.markdown("### ⚡ **SalesPulse** Analytics")
+        with col_info:
             st.markdown(
-                "### ⚡ **SalesPulse** `ENTERPRISE`",
-                help="SalesPulse Analytics - Enterprise Big Data & Cloud Sales Platform"
-            )
-        with hr:
-            status_text = (
-                f"`● Spark Catalyst Ready` &nbsp;|&nbsp; "
-                f"`🛡️ ₹0 Cloud Safe` &nbsp;|&nbsp; "
-                f"`💱 {code} ({symbol})` &nbsp;|&nbsp; "
-                f"`📂 {dataset_name}`"
-            )
-            st.markdown(
-                f"<div style='text-align: right; padding-top: 8px;'>{status_text}</div>",
+                f"<div style='padding-top: 10px; color: #475569; font-size: 0.92rem;'>"
+                f"📁 <b>Dataset:</b> {dataset_name} &nbsp;•&nbsp; <b>Currency:</b> {code} ({symbol})"
+                f"</div>",
                 unsafe_allow_html=True
             )
-        st.markdown("<hr style='margin: 0.1rem 0 1.25rem 0; border: none; border-top: 1px solid #E2E8F0;' />", unsafe_allow_html=True)
+        with col_btn_import:
+            if st.button("📥 Import Data", key="hdr_btn_import", use_container_width=True, help="Upload, enter or select a new sales dataset"):
+                st.session_state["nav_selection"] = "📥 Upload & Manage Data"
+                st.rerun()
+        with col_btn_refresh:
+            if st.button("🔄 Refresh", key="hdr_btn_refresh", use_container_width=True, help="Refresh dashboard views and metrics"):
+                st.rerun()
+        st.markdown("<hr style='margin: 0.2rem 0 1.1rem 0; border: none; border-top: 1px solid #E2E8F0;' />", unsafe_allow_html=True)
 
 
 def render_footer():
