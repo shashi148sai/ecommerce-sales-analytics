@@ -82,10 +82,10 @@ REFERENCE_RATE_DATE = "2026-10-23"
 MAX_UPLOAD_SIZE_MB = 100
 
 # ------------------------------------------------------------------------------
-# Domain & Dataset Constants
+# Domain & Dataset Constants (Default Presentation Currency: INR)
 # ------------------------------------------------------------------------------
-DEFAULT_CURRENCY = "£"
-DEFAULT_CURRENCY_CODE = "GBP"
+DEFAULT_CURRENCY = "₹"
+DEFAULT_CURRENCY_CODE = "INR"
 
 REQUIRED_COLUMNS = [
     "InvoiceNo",
@@ -98,16 +98,114 @@ REQUIRED_COLUMNS = [
     "Country"
 ]
 
-# Aliases for intelligent schema matching across varied e-commerce datasets
+# Business Field Metadata for guided user mapping and validation
+FIELD_DEFINITIONS = {
+    "InvoiceNo": {
+        "label": "Order or Invoice ID",
+        "description": "Unique identifier for each transaction or bill",
+        "required": True,
+        "is_identifier": True,
+        "example": "536365, ORD-10294"
+    },
+    "StockCode": {
+        "label": "Product Code or SKU",
+        "description": "Unique catalog identifier or barcode for the item",
+        "required": True,
+        "is_identifier": True,
+        "example": "85123A, SKU-001"
+    },
+    "Description": {
+        "label": "Product Name or Title",
+        "description": "Readable description or name of the merchandise",
+        "required": True,
+        "is_identifier": False,
+        "example": "WHITE HANGING HEART T-LIGHT HOLDER"
+    },
+    "Quantity": {
+        "label": "Units Sold (Quantity)",
+        "description": "Number of product units purchased (negative indicates return)",
+        "required": True,
+        "is_identifier": False,
+        "example": "6, 12, -1"
+    },
+    "InvoiceDate": {
+        "label": "Order Date and Time",
+        "description": "Date and timestamp when the order was placed",
+        "required": True,
+        "is_identifier": False,
+        "example": "01-12-2010 08:26, 2023-05-15"
+    },
+    "UnitPrice": {
+        "label": "Unit Selling Price",
+        "description": "Price per single unit of the product",
+        "required": True,
+        "is_identifier": False,
+        "example": "2.55, 149.00"
+    },
+    "SalesAmount": {
+        "label": "Total Sales Amount (Optional)",
+        "description": "Pre-computed line total (if present, prevents double-calculation)",
+        "required": False,
+        "is_identifier": False,
+        "example": "15.30, 899.00"
+    },
+    "CustomerID": {
+        "label": "Customer ID (Optional)",
+        "description": "Unique identifier for registered buyer (empty for guest checkouts)",
+        "required": False,
+        "is_identifier": True,
+        "example": "17850, CUST-883"
+    },
+    "Country": {
+        "label": "Country or Region (Optional)",
+        "description": "Geographical market or shipping destination",
+        "required": False,
+        "is_identifier": False,
+        "example": "United Kingdom, India, Germany"
+    }
+}
+
+# Aliases for robust, intelligent schema matching across diverse e-commerce datasets
 COLUMN_ALIASES = {
-    "InvoiceNo": ["invoiceno", "invoice_no", "invoice_id", "invoicenum", "order_id", "orderid", "bill_no", "bill_number"],
-    "StockCode": ["stockcode", "stock_code", "product_id", "productid", "item_code", "sku", "product_code"],
-    "Description": ["description", "product_name", "item_name", "title", "product_description", "item_desc"],
-    "Quantity": ["quantity", "qty", "units", "items_count", "item_count"],
-    "InvoiceDate": ["invoicedate", "invoice_date", "order_date", "orderdate", "date", "timestamp"],
-    "UnitPrice": ["unitprice", "unit_price", "price", "rate", "item_price", "selling_price"],
-    "CustomerID": ["customerid", "customer_id", "user_id", "client_id", "cust_id"],
-    "Country": ["country", "region", "nation", "location", "state", "shipping_country"]
+    "InvoiceNo": [
+        "invoiceno", "invoice_no", "invoice", "invoice_id", "invoicenum", "invoicenumber",
+        "order_id", "orderid", "order_number", "ordernumber", "order_no", "orderno",
+        "transaction_id", "transactionid", "transaction_no", "bill_no", "bill_number",
+        "receipt_id", "receipt_no", "order"
+    ],
+    "StockCode": [
+        "stockcode", "stock_code", "product_id", "productid", "item_code", "itemcode",
+        "sku", "product_code", "productcode", "item_id", "itemid", "code", "barcode", "asin"
+    ],
+    "Description": [
+        "description", "product_name", "productname", "item_name", "itemname", "product",
+        "item", "title", "product_description", "item_desc", "item_description", "details",
+        "name"
+    ],
+    "Quantity": [
+        "quantity", "qty", "units", "unit", "units_sold", "items_count", "item_count",
+        "itemcount", "count", "pieces", "volume", "order_quantity"
+    ],
+    "InvoiceDate": [
+        "invoicedate", "invoice_date", "order_date", "orderdate", "date", "transaction_date",
+        "timestamp", "datetime", "order_time", "sale_date", "purchased_at", "created_at"
+    ],
+    "UnitPrice": [
+        "unitprice", "unit_price", "price", "rate", "item_price", "selling_price",
+        "unit_cost", "cost_per_unit", "mrp", "item_cost"
+    ],
+    "SalesAmount": [
+        "sales", "revenue", "total", "total_amount", "sales_amount", "net_amount",
+        "line_total", "linetotal", "total_price", "totalprice", "gross_amount", "amount"
+    ],
+    "CustomerID": [
+        "customerid", "customer_id", "customer", "user_id", "userid", "client_id",
+        "clientid", "cust_id", "custid", "buyer_id", "buyer", "shopper_id", "account_id"
+    ],
+    "Country": [
+        "country", "region", "nation", "location", "state", "shipping_country",
+        "delivery_location", "market", "territory", "zone", "city"
+    ]
 }
 
 CANCELLATION_PREFIXES = ("C", "c")

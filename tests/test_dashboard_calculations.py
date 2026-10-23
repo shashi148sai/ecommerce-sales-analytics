@@ -5,6 +5,7 @@ Unit tests for dashboard formatting, KPI calculation logic, and chart utilities.
 import pytest
 import pandas as pd
 import plotly.graph_objects as go
+from config import settings
 from src.dashboard.utils import (
     format_currency,
     format_number,
@@ -17,20 +18,28 @@ from src.dashboard.utils import (
 
 
 def test_format_currency():
-    """Verifies that currency adheres strictly to GBP (£) and handles compact views."""
-    assert format_currency(1234.56) == "£1,234.56"
-    assert format_currency(0) == "£0.00"
-    assert format_currency(None) == "£0.00"
+    """Verifies that currency adheres strictly to INR (₹) by default and supports GBP (£) mode."""
+    # Default presentation mode is INR (₹) with reference rate conversion for canonical GBP
+    assert format_currency(0) == "₹0.00"
+    assert format_currency(None) == "₹0.00"
     
-    # Compact views
-    assert format_currency(10_640_000, compact=True) == "£10.64M"
-    assert format_currency(45_200, compact=True) == "£45.2K"
-    assert format_currency(150, compact=True) == "£150.00"
+    # Explicit INR direct mode (1:1 native INR)
+    assert format_currency(1234.56, override_symbol="₹", override_rate=1.0) == "₹1,234.56"
+    assert format_currency(10_640_000, compact=True, override_symbol="₹", override_rate=1.0) == "₹1.06 Cr"
+    
+    # GBP mode with explicit overrides
+    assert format_currency(1234.56, override_symbol="£", override_rate=1.0) == "£1,234.56"
+    assert format_currency(10_640_000, compact=True, override_symbol="£", override_rate=1.0) == "£10.64M"
+    assert format_currency(45_200, compact=True, override_symbol="£", override_rate=1.0) == "£45.2K"
+    assert format_currency(150, compact=True, override_symbol="£", override_rate=1.0) == "£150.00"
 
 
 def test_format_number():
-    """Verifies thousands separation formatting."""
-    assert format_number(541909) == "541,909"
+    """Verifies thousands separation and Indian grouping formatting."""
+    # Under Indian default, uses Indian numbering (5,41,909)
+    assert format_number(541909, use_indian_format=True) == "5,41,909"
+    # In standard mode, uses standard comma (541,909)
+    assert format_number(541909, use_indian_format=False) == "541,909"
     assert format_number(0) == "0"
     assert format_number(None) == "0"
 
@@ -58,7 +67,7 @@ def test_data_loaders_integration():
     if kpis:
         assert "gross_revenue" in kpis
         assert "net_revenue" in kpis
-        assert kpis["currency"] == "£"
+        assert kpis["currency"] in ["£", "₹", settings.DEFAULT_CURRENCY]
         
     monthly = load_monthly_trends()
     assert isinstance(monthly, pd.DataFrame)

@@ -7,6 +7,7 @@ Generates structured JSON and CSV reports for cloud or local governance.
 import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
+import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from config import settings
@@ -38,35 +39,115 @@ def validate_schema(
     }
 
 
+def clean_key(s: str) -> str:
+    """Helper to clean a column name for fuzzy alias matching."""
+    return str(s).strip().lower().replace(" ", "").replace("_", "").replace("-", "")
+
+
 def detect_schema_mapping(columns: List[str]) -> Tuple[Dict[str, str], List[str]]:
     """
-    Intelligently maps input columns to standard schema names using COLUMN_ALIASES.
+    Intelligently maps input columns to standard schema names using settings.COLUMN_ALIASES.
+    Robust against spaces, underscores, hyphens, and mixed capitalizations.
     
     Returns:
         Tuple of (mapping_dict, missing_columns_list)
-        mapping_dict maps: file_column_name -> standard_column_name
+        mapping_dict maps: source_file_column -> standard_field_name
     """
     mapping: Dict[str, str] = {}
-    lower_to_orig = {str(c).strip().lower(): str(c) for c in columns}
+    cleaned_to_orig = {clean_key(c): str(c) for c in columns}
     mapped_targets = set()
     
-    for req_col in settings.REQUIRED_COLUMNS:
-        req_lower = req_col.lower()
-        if req_lower in lower_to_orig:
-            orig_col = lower_to_orig[req_lower]
+    # Check all recognized fields (including optional ones like SalesAmount)
+    all_fields = list(settings.COLUMN_ALIASES.keys())
+    
+    for req_col in all_fields:
+        req_clean = clean_key(req_col)
+        if req_clean in cleaned_to_orig:
+            orig_col = cleaned_to_orig[req_clean]
             mapping[orig_col] = req_col
             mapped_targets.add(req_col)
         else:
             aliases = settings.COLUMN_ALIASES.get(req_col, [])
             for alias in aliases:
-                if alias.lower() in lower_to_orig:
-                    orig_col = lower_to_orig[alias.lower()]
-                    mapping[orig_col] = req_col
-                    mapped_targets.add(req_col)
-                    break
-                    
+                alias_clean = clean_key(alias)
+                if alias_clean in cleaned_to_orig:
+                    orig_col = cleaned_to_orig[alias_clean]
+                    # Avoid assigning same source column to multiple targets
+                    if orig_col not in mapping:
+                        mapping[orig_col] = req_col
+                        mapped_targets.add(req_col)
+                        break
+                        
+    # Check which of the core REQUIRED_COLUMNS are missing
     missing = [col for col in settings.REQUIRED_COLUMNS if col not in mapped_targets]
     return mapping, missing
+
+
+def normalize_pandas_dataframe(
+    df: pd.DataFrame,
+    mapping: Dict[str, str]
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Normalizes an uploaded pandas DataFrame according to the mapped fields:
+    - Renames mapped columns to canonical names.
+    - Preserves all unmapped source columns so users do not lose data.
+    - Treats identifiers (InvoiceNo, StockCode, CustomerID) strictly as strings.
+    - Accurately computes or retains LineTotal without double-counting pre-existing sales amounts.
+    - Detects legitimate returns (e.g. Invoice starting with 'C' or negative Quantity).
+    """
+    normalized = df.copy()
+    
+    # Rename mapped columns
+    normalized = normalized.rename(columns=mapping)
+    
+    # Preserve identifiers as strings
+    for id_col in ["InvoiceNo", "StockCode", "CustomerID"]:
+        if id_col in normalized.columns:
+            normalized[id_col] = normalized[id_col].astype(str).str.strip()
+            # Replace 'nan' or 'None' strings with empty/null
+            normalized[id_col] = normalized[id_col].replace({"nan": None, "None": None, "": None})
+            
+    # Handle numeric columns safely
+    has_qty = "Quantity" in normalized.columns
+    has_price = "UnitPrice" in normalized.columns
+    has_sales_amount = "SalesAmount" in normalized.columns
+    
+    if has_qty:
+        normalized["Quantity"] = pd.to_numeric(normalized["Quantity"], errors="coerce").fillna(0)
+    if has_price:
+        normalized["UnitPrice"] = pd.to_numeric(normalized["UnitPrice"], errors="coerce").fillna(0.0)
+        
+    # Calculate LineTotal: If SalesAmount is already provided, respect it without double calculation!
+    if has_sales_amount:
+        normalized["SalesAmount"] = pd.to_numeric(normalized["SalesAmount"], errors="coerce")
+        normalized["LineTotal"] = normalized["SalesAmount"].fillna(
+            (normalized["Quantity"] * normalized["UnitPrice"]) if (has_qty and has_price) else 0.0
+        )
+    elif has_qty and has_price:
+        normalized["LineTotal"] = normalized["Quantity"] * normalized["UnitPrice"]
+    else:
+        normalized["LineTotal"] = 0.0
+        
+    # Flag returns vs sales
+    is_return_mask = pd.Series(False, index=normalized.index)
+    if "InvoiceNo" in normalized.columns:
+        is_return_mask |= normalized["InvoiceNo"].astype(str).str.upper().str.startswith(("C", "c"))
+    if has_qty:
+        is_return_mask |= (normalized["Quantity"] < 0)
+        
+    normalized["IsReturn"] = is_return_mask
+    
+    # Summary telemetry
+    summary = {
+        "total_rows": len(normalized),
+        "columns_count": len(normalized.columns),
+        "return_rows_count": int(is_return_mask.sum()),
+        "valid_sales_rows_count": int((~is_return_mask).sum()),
+        "has_sales_amount_precomputed": has_sales_amount,
+        "mapped_fields": list(mapping.values())
+    }
+    
+    return normalized, summary
 
 
 def compute_data_quality_report(df: DataFrame) -> Dict[str, Any]:

@@ -3,6 +3,7 @@ Unit tests for Spark SQL aggregations, commercial KPIs, top products, trends, an
 """
 
 import pytest
+from config import settings
 from src.processing.transformer import transform_and_clean_data
 from src.analytics.aggregations import (
     register_spark_views,
@@ -38,7 +39,7 @@ def test_overall_kpis(spark_session, prepared_views):
     assert kpis["total_units_sold"] == 16
     assert kpis["return_orders_count"] == 2
     assert kpis["average_order_value"] == round(44.48 / 3, 2)
-    assert kpis["currency"] == "£"
+    assert kpis["currency"] == settings.DEFAULT_CURRENCY
 
 
 def test_top_products(spark_session, prepared_views):

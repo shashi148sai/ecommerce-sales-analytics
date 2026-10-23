@@ -7,7 +7,7 @@ Streamlit native bordered KPI cards, cached data loaders, and Plotly palettes.
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, Tuple
+from typing import Dict, Any, Optional, Union, Tuple, List
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -105,18 +105,26 @@ def format_compact_indian(val: Optional[Union[int, float]], currency_symbol: str
 
 def get_active_currency_config() -> Tuple[str, str, float]:
     """
-    Retrieves the user's active currency mode, symbol, and multiplier from session_state.
-    Defaults to original GBP (£, 1.0).
+    Retrieves the user's active presentation currency mode, symbol, and multiplier from session_state.
+    Defaults to INR (₹) - Indian Rupees as required by project guidelines.
+    Dynamically accounts for dataset source currency (e.g. GBP vs INR) so that native INR datasets
+    are never erroneously multiplied by conversion rates.
     """
-    mode = st.session_state.get("currency_mode", "GBP (£)")
-    if mode == "INR (₹)":
+    mode = st.session_state.get("currency_mode", "INR (₹)")
+    source_curr = str(st.session_state.get("dataset_source_currency", "GBP")).upper()
+    inr_rate = float(st.session_state.get("inr_conversion_rate", settings.DEFAULT_GBP_TO_INR_RATE))
+    
+    if mode.startswith("INR") or mode == "INR":
         symbol = "₹"
-        rate = float(st.session_state.get("inr_conversion_rate", settings.DEFAULT_GBP_TO_INR_RATE))
         code = "INR"
+        # If source is GBP, apply reference exchange rate; if already INR, multiplier is 1.0
+        rate = inr_rate if source_curr == "GBP" else 1.0
     else:
         symbol = "£"
-        rate = 1.0
         code = "GBP"
+        # If source is INR and user wants GBP, divide; if already GBP, multiplier is 1.0
+        rate = (1.0 / inr_rate) if source_curr == "INR" else 1.0
+        
     return symbol, code, rate
 
 
@@ -129,8 +137,8 @@ def format_currency(
 ) -> str:
     """
     Formats currency amounts with appropriate localization.
-    Automatically applies active session currency rate (GBP or Converted INR).
-    Uses Western notation (M, K) for GBP and Indian notation (Cr, L) for INR by default.
+    Defaults to INR (₹) and Indian number grouping (Lakh/Crore) unless overridden.
+    Never outputs the euro symbol (€).
     """
     if value is None or pd.isna(value):
         symbol = override_symbol or st.session_state.get("active_currency_symbol", settings.DEFAULT_CURRENCY)
@@ -143,7 +151,10 @@ def format_currency(
         rate = override_rate
         
     converted_val = float(value) * rate
-    is_indian = use_indian_format if use_indian_format is not None else (code == "INR" or symbol == "₹")
+    if override_symbol is not None and override_symbol != "₹":
+        is_indian = use_indian_format if use_indian_format is not None else False
+    else:
+        is_indian = use_indian_format if use_indian_format is not None else (code == "INR" or symbol == "₹")
     
     if compact:
         if is_indian:
@@ -154,6 +165,84 @@ def format_currency(
     if is_indian:
         return f"{symbol}{format_indian_number(converted_val, decimals=2)}"
     return f"{symbol}{converted_val:,.2f}"
+
+
+def check_available_analyses(df_or_cols: Union[pd.DataFrame, List[str], Dict[str, Any], set]) -> Dict[str, Any]:
+    """
+    Evaluates which analytical modules are supported by the active dataset schema.
+    Uses intelligent schema mapping to recognize alias variations.
+    
+    Returns:
+        Dictionary mapping capability keys to booleans with human-readable rationale.
+    """
+    if isinstance(df_or_cols, pd.DataFrame):
+        cols = list(df_or_cols.columns)
+    elif isinstance(df_or_cols, dict):
+        cols = list(df_or_cols.keys())
+    elif isinstance(df_or_cols, (list, tuple, set)):
+        cols = list(df_or_cols)
+    else:
+        cols = []
+        
+    from src.validation.validator import detect_schema_mapping
+    mapping, _ = detect_schema_mapping([str(c) for c in cols])
+    mapped_targets = set(mapping.values())
+    
+    # Direct presence check (in case standard names already exist)
+    direct_set = {str(c).strip() for c in cols}
+    mapped_targets.update(direct_set)
+    
+    # Revenue analysis: needs (Quantity and UnitPrice) OR SalesAmount
+    has_qty = "Quantity" in mapped_targets
+    has_price = "UnitPrice" in mapped_targets
+    has_sales = "SalesAmount" in mapped_targets
+    revenue_available = (has_qty and has_price) or has_sales
+    
+    # Time-series: needs Date / InvoiceDate
+    has_date = "InvoiceDate" in mapped_targets
+    
+    # Product analysis: needs Description or StockCode
+    has_product = "Description" in mapped_targets or "StockCode" in mapped_targets
+    
+    # Customer analysis: needs CustomerID
+    has_customer = "CustomerID" in mapped_targets
+    
+    # Regional analysis: needs Country
+    has_region = "Country" in mapped_targets
+    
+    explanations = {}
+    if not revenue_available:
+        explanations["revenue"] = "Requires either (Quantity + Unit Price) or a pre-calculated Total Sales Amount."
+    if not has_date:
+        explanations["time_series"] = "Requires an Order Date or Transaction Date column to analyze temporal trends and seasonality."
+    if not has_product:
+        explanations["product"] = "Requires a Product Code/SKU or Item Description to rank bestselling catalog items."
+    if not has_customer:
+        explanations["customer"] = "Requires Customer IDs to calculate customer retention, repeat orders, and RFM loyalty tiers."
+    if not has_region:
+        explanations["regional"] = "Requires a Country or Geographic Region field to map regional sales distribution."
+        
+    return {
+        "revenue_analysis": revenue_available,
+        "time_series_analysis": has_date,
+        "product_analysis": has_product,
+        "customer_analysis": has_customer,
+        "regional_analysis": has_region,
+        "explanations": explanations
+    }
+
+
+def get_csv_template() -> str:
+    """Returns a ready-to-use CSV template string with realistic e-commerce sample data."""
+    return (
+        "InvoiceNo,StockCode,Description,Quantity,InvoiceDate,UnitPrice,CustomerID,Country\n"
+        "536365,85123A,WHITE HANGING HEART T-LIGHT HOLDER,6,01-12-2010 08:26,2.55,17850,United Kingdom\n"
+        "536365,71053,WHITE METAL LANTERN,6,01-12-2010 08:26,3.39,17850,United Kingdom\n"
+        "536365,84406B,CREAM CUPID HEARTS COAT HANGER,8,01-12-2010 08:26,2.75,17850,United Kingdom\n"
+        "536366,22633,HAND WARMER UNION JACK,6,01-12-2010 08:28,1.85,17850,United Kingdom\n"
+        "536367,84879,ASSORTED COLOUR BIRD ORNAMENT,32,01-12-2010 08:34,1.69,13047,United Kingdom\n"
+        "C536379,D,Discount,-1,01-12-2010 09:41,27.50,14527,United Kingdom\n"
+    )
 
 
 def format_number(

@@ -6,112 +6,119 @@ Powered by Apache Spark, PySpark, Spark SQL, Amazon S3, and Streamlit.
 
 import streamlit as st
 from config import settings
-from src.dashboard.utils import load_kpis, load_pipeline_metadata, format_currency, format_number
+from src.dashboard.utils import load_pipeline_metadata, get_active_currency_config
 from src.dashboard.pages import (
+    page_0_home as p0,
+    page_upload_and_manage as p_upload,
     page_1_sales_overview as p1,
     page_2_product_analytics as p2,
     page_3_sales_trends as p3,
     page_4_customer_and_regional as p4,
-    page_5_data_management_and_quality as p5,
-    page_6_forecasting_and_segmentation as p6,
-    page_7_system_performance as p7
+    page_data_quality_and_reports as p_quality,
+    page_settings as p_settings
 )
 
 # Page configuration
 st.set_page_config(
-    page_title="SalesPulse Analytics | BDA & Cloud Computing",
+    page_title="SalesPulse Analytics | Modern E-Commerce Sales Platform",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ------------------------------------------------------------------------------
+# Session State Initialization (Default Presentation Currency: INR)
+# ------------------------------------------------------------------------------
+if "currency_mode" not in st.session_state:
+    st.session_state["currency_mode"] = "INR (₹)"
+    st.session_state["active_currency_symbol"] = "₹"
+    
+if "inr_conversion_rate" not in st.session_state:
+    st.session_state["inr_conversion_rate"] = settings.DEFAULT_GBP_TO_INR_RATE
+    
+if "dataset_source_currency" not in st.session_state:
+    st.session_state["dataset_source_currency"] = "GBP"
+    
+if "active_dataset_type" not in st.session_state:
+    st.session_state["active_dataset_type"] = "canonical"
+
+# ------------------------------------------------------------------------------
 # Sidebar Navigation & Environment Information
 # ------------------------------------------------------------------------------
 st.sidebar.title("⚡ SalesPulse Analytics")
-st.sidebar.caption("B.Tech Capstone Project: Big Data Analytics & Cloud Computing")
+st.sidebar.caption("E-Commerce Sales Analytics Platform (BDA + Cloud)")
 
-# Storage Mode Indicator
-storage_badge_text = "Local Storage (₹0 Cost)" if settings.STORAGE_MODE == "local" else f"Amazon S3 ({settings.AWS_S3_BUCKET})"
-st.sidebar.success(f"● Storage: {storage_badge_text}")
+# Active Dataset Status Badge
+meta = load_pipeline_metadata()
+dataset_type = st.session_state.get("active_dataset_type", "canonical" if meta else "none")
 
-# ------------------------------------------------------------------------------
-# Indian-First Currency & Localization Configuration
-# ------------------------------------------------------------------------------
-if "currency_mode" not in st.session_state:
-    st.session_state["currency_mode"] = "GBP (£)"
-if "inr_conversion_rate" not in st.session_state:
-    st.session_state["inr_conversion_rate"] = settings.DEFAULT_GBP_TO_INR_RATE
-
-st.sidebar.subheader("💱 Currency Presentation")
-currency_selection = st.sidebar.radio(
-    "Select Display Currency:",
-    options=["GBP (£) - Original Dataset", "INR (₹) - Converted Reference"],
-    index=0 if st.session_state["currency_mode"].startswith("GBP") else 1,
-    help="Canonical dataset is in GBP (£). Choose INR (₹) to dynamically apply the documented reference exchange rate."
-)
-
-if currency_selection.startswith("GBP"):
-    st.session_state["currency_mode"] = "GBP (£)"
-    st.session_state["active_currency_symbol"] = "£"
+if dataset_type == "sample":
+    st.sidebar.warning("🧪 Active: Included Sample Data")
+elif meta:
+    st.sidebar.success(f"● Active: {meta.get('dataset_file', 'OnlineRetail.csv')}")
 else:
-    st.session_state["currency_mode"] = "INR (₹)"
-    st.session_state["active_currency_symbol"] = "₹"
+    st.sidebar.info("● Active: No Dataset Loaded")
 
-with st.sidebar.expander("⚙️ Localization & FX Settings", expanded=False):
-    st.caption("Documented Reference Exchange Rate:")
-    custom_rate = st.number_input(
-        "1 GBP to INR (₹)",
-        min_value=1.0,
-        max_value=500.0,
-        value=float(st.session_state["inr_conversion_rate"]),
-        step=0.5,
-        format="%.2f"
-    )
-    st.session_state["inr_conversion_rate"] = custom_rate
-    
-    st.info(
-        f"**Source Currency:** GBP (£)\n\n"
-        f"**Target Currency:** INR (₹)\n\n"
-        f"**Exchange Rate:** 1 GBP = ₹{custom_rate:.2f}\n\n"
-        f"**Rate Date:** {settings.REFERENCE_RATE_DATE}\n\n"
-        "*(Reference rate used for Indian presentation; historical transaction dates retain canonical £ values.)*"
-    )
-    st.caption(f"**Fiscal Year:** Indian FY (1 Apr – 31 Mar)\n\n**Locale:** `{settings.LOCALE}` | **TZ:** `{settings.TIMEZONE}`")
-
-st.sidebar.divider()
-
+# Navigation Pages (8 Sections matching requirements)
 pages = {
+    "🏠 Home": p0.render_page,
+    "📥 Upload & Manage Data": p_upload.render_page,
     "💼 Sales Overview": p1.render_page,
-    "📦 Product Analytics": p2.render_page,
+    "📦 Product Insights": p2.render_page,
+    "👥 Customer Insights": p4.render_page,
     "📈 Sales Trends": p3.render_page,
-    "🌍 Customer and Regional": p4.render_page,
-    "🛡️ Data Management & Quality": p5.render_page,
-    "🔮 Forecasting & Segmentation": p6.render_page,
-    "⚡ System Performance": p7.render_page,
+    "🛡️ Data Quality & Reports": p_quality.render_page,
+    "⚙️ Settings": p_settings.render_page,
 }
 
-selected_page = st.sidebar.radio("Navigation", list(pages.keys()), index=0)
+page_keys = list(pages.keys())
+
+# Support programmatic navigation from buttons via session state
+if "nav_selection" not in st.session_state or st.session_state["nav_selection"] not in page_keys:
+    st.session_state["nav_selection"] = page_keys[0]
+
+# Determine active index
+current_index = page_keys.index(st.session_state["nav_selection"])
+
+selected_page = st.sidebar.radio(
+    "Navigation",
+    page_keys,
+    index=current_index,
+    key="nav_radio"
+)
+st.session_state["nav_selection"] = selected_page
 
 st.sidebar.divider()
-st.sidebar.markdown("**System Profile:**")
-st.sidebar.text(
-    f"Engine: PySpark 3.5\n"
-    f"Spark Master: {settings.SPARK_MASTER}\n"
-    f"Active Currency: {st.session_state['currency_mode']}\n"
-    f"Storage: {settings.STORAGE_MODE.upper()} (₹0 Offline)"
+
+# Quick Currency Switcher
+st.sidebar.markdown("**💱 Currency Presentation:**")
+curr_radio = st.sidebar.radio(
+    "Active Display Currency:",
+    options=["INR (₹) - Indian Rupees", "GBP (£) - British Pounds"],
+    index=0 if st.session_state["currency_mode"].startswith("INR") else 1,
+    label_visibility="collapsed"
 )
 
-meta = load_pipeline_metadata()
-if meta:
-    st.sidebar.markdown(
-        f"**Dataset:** `{meta.get('dataset_file')}`\n"
-        f"- Ingested: **{meta.get('total_records_ingested', 0):,}**\n"
-        f"- Throughput: **{meta.get('throughput_rows_per_second', 0):,.1f} rows/s**"
-    )
+if curr_radio.startswith("INR"):
+    st.session_state["currency_mode"] = "INR (₹)"
+    st.session_state["active_currency_symbol"] = "₹"
+else:
+    st.session_state["currency_mode"] = "GBP (£)"
+    st.session_state["active_currency_symbol"] = "£"
+
+symbol, code, rate = get_active_currency_config()
+src_curr = st.session_state.get("dataset_source_currency", "GBP")
+if code == "INR" and src_curr == "GBP":
+    st.sidebar.caption(f"Ref Rate: 1 GBP = ₹{rate:.2f} (23-Oct-2026)")
+elif code == "INR" and src_curr == "INR":
+    st.sidebar.caption("Native INR Dataset (1:1 direct)")
 
 st.sidebar.divider()
-st.sidebar.caption("SalesPulse Analytics © 2026\nAcademic Project for BDA & Cloud Computing")
+st.sidebar.caption(
+    f"Engine: PySpark 3.5 | Master: {settings.SPARK_MASTER}\n"
+    f"Storage: {settings.STORAGE_MODE.upper()} (₹0 Local Safety)\n"
+    f"SalesPulse Analytics © 2026"
+)
 
 # Render active page
 pages[selected_page]()
