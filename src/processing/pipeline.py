@@ -33,7 +33,8 @@ from src.storage.storage_manager import StorageManager
 def run_pipeline(
     input_file_path: Optional[Path] = None,
     limit_rows: Optional[int] = None,
-    spark=None
+    spark=None,
+    column_mapping: Optional[Dict[str, str]] = None
 ) -> Dict[str, Any]:
     """
     Executes the end-to-end Big Data & Cloud analytics pipeline.
@@ -42,6 +43,7 @@ def run_pipeline(
         input_file_path: Path to raw dataset CSV/XLSX (defaults to settings.DEFAULT_RAW_FILE).
         limit_rows: Optional row limit for fast development or memory-constrained testing.
         spark: Optional active SparkSession.
+        column_mapping: Optional schema mapping dictionary for custom dataset compatibility.
         
     Returns:
         Comprehensive execution summary dictionary.
@@ -61,7 +63,7 @@ def run_pipeline(
         
     # Step 1: Ingestion
     t0 = time.time()
-    raw_df = load_raw_data(file_path, spark=spark, limit=limit_rows)
+    raw_df = load_raw_data(file_path, spark=spark, limit=limit_rows, column_mapping=column_mapping)
     raw_count = raw_df.count()
     ingest_time = round(time.time() - t0, 3)
     

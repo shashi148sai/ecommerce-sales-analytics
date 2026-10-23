@@ -1,7 +1,7 @@
 """
 SalesPulse Analytics - Customer and Regional Analytics Page
 Analyzes geographic revenue distributions, UK vs International markets,
-and customer retention / repeat purchase metrics.
+and customer retention / repeat purchase metrics with currency localization.
 """
 
 import streamlit as st
@@ -14,6 +14,7 @@ from src.dashboard.utils import (
     format_number,
     format_percent,
     render_kpi_card,
+    get_active_currency_config,
     apply_chart_theme,
     CHART_COLORS
 )
@@ -30,6 +31,8 @@ def render_page():
         st.warning("⚠️ Regional analytics data is unavailable. Please process the dataset first.")
         return
         
+    symbol, code, rate = get_active_currency_config()
+    
     tab1, tab2 = st.tabs(["🗺️ Geographic Performance", "👥 Customer Loyalty & Retention"])
     
     with tab1:
@@ -37,7 +40,7 @@ def render_page():
         
         # Calculate UK vs International
         uk_row = country_df[country_df["Country"] == "United Kingdom"]
-        intl_rows = country_df[country_df["Country"] != "United Kingdom"]
+        intl_rows = country_df[country_df["Country"] != "United Kingdom"].copy()
         
         total_rev = country_df["TotalRevenue"].sum()
         uk_rev = uk_row["TotalRevenue"].iloc[0] if not uk_row.empty else 0.0
@@ -56,21 +59,22 @@ def render_page():
         
         with col_chart:
             top_countries = country_df.head(10).copy()
+            top_countries["ScaledRevenue"] = top_countries["TotalRevenue"] * rate
             fig_country = px.bar(
                 top_countries,
-                x="TotalRevenue",
+                x="ScaledRevenue",
                 y="Country",
                 orientation="h",
-                text="TotalRevenue",
-                color="TotalRevenue",
+                text="ScaledRevenue",
+                color="ScaledRevenue",
                 color_continuous_scale="Blues",
-                title="Top 10 Countries by Revenue (£)",
-                labels={"TotalRevenue": "Revenue (£)", "Country": ""}
+                title=f"Top 10 Countries by Revenue ({symbol})",
+                labels={"ScaledRevenue": f"Revenue ({symbol})", "Country": ""}
             )
-            fig_country.update_traces(texttemplate="£%{x:,.0f}", textposition="inside")
+            fig_country.update_traces(texttemplate=f"{symbol}%{{x:,.0f}}", textposition="inside")
             fig_country.update_layout(
                 yaxis=dict(autorange="reversed", automargin=True, title=""),
-                xaxis=dict(title="Revenue (£)", tickprefix="£", automargin=True),
+                xaxis=dict(title=f"Revenue ({symbol})", tickprefix=symbol, automargin=True),
                 coloraxis_showscale=False,
                 margin=dict(l=20, r=30, t=60, b=40)
             )
@@ -78,87 +82,87 @@ def render_page():
             st.plotly_chart(fig_country, width="stretch")
             
         with col_intl:
-            st.markdown("##### 🌐 Top International Markets")
+            st.markdown(f"##### 🌐 Top International Markets ({symbol})")
             top_intl = intl_rows.head(8).copy()
+            top_intl["ScaledRevenue"] = top_intl["TotalRevenue"] * rate
+            top_intl["ScaledCountryAOV"] = top_intl["CountryAOV"] * rate
             st.dataframe(
-                top_intl[["Country", "TotalRevenue", "OrderCount", "CountryAOV"]].style.format({
-                    "TotalRevenue": "£{:,.2f}",
+                top_intl[["Country", "ScaledRevenue", "OrderCount", "ScaledCountryAOV"]].style.format({
+                    "ScaledRevenue": f"{symbol}{{:,.2f}}",
                     "OrderCount": "{:,}",
-                    "CountryAOV": "£{:.2f}"
+                    "ScaledCountryAOV": f"{symbol}{{:,.2f}}"
                 }),
                 width="stretch"
             )
             
         st.divider()
         st.subheader("All Countries Summary Table")
+        all_country_display = country_df.copy()
+        all_country_display["ScaledRevenue"] = all_country_display["TotalRevenue"] * rate
+        all_country_display["ScaledCountryAOV"] = all_country_display["CountryAOV"] * rate
         st.dataframe(
-            country_df.style.format({
-                "TotalRevenue": "£{:,.2f}",
+            all_country_display[["Country", "ScaledRevenue", "OrderCount", "CustomerCount", "UnitsSold", "ScaledCountryAOV"]].style.format({
+                "ScaledRevenue": f"{symbol}{{:,.2f}}",
                 "OrderCount": "{:,}",
                 "CustomerCount": "{:,}",
                 "UnitsSold": "{:,}",
-                "CountryAOV": "£{:.2f}"
+                "ScaledCountryAOV": f"{symbol}{{:,.2f}}"
             }),
             width="stretch"
         )
         
     with tab2:
-        st.subheader("Customer Retention and Guest Checkout Audit")
+        st.subheader("Customer Loyalty & Lifetime Dynamics")
         
         if repeat_stats:
-            rc1, rc2, rc3, rc4 = st.columns(4)
-            with rc1:
-                render_kpi_card("Registered Customers", format_number(repeat_stats.get("total_registered_customers")))
-            with rc2:
-                render_kpi_card("Repeat Customers", format_number(repeat_stats.get("repeat_customers_count")), subtitle=f"{repeat_stats.get('repeat_customer_rate_percent')}% of registered")
-            with rc3:
-                render_kpi_card("One-Time Buyers", format_number(repeat_stats.get("one_time_customers_count")), subtitle="Single invoice completed")
-            with rc4:
-                render_kpi_card("Repeat Revenue Share", f"{repeat_stats.get('repeat_revenue_share_percent', 0.0):.1f}%", subtitle="Of registered customer revenue")
+            lc1, lc2, lc3, lc4 = st.columns(4)
+            with lc1:
+                render_kpi_card("Registered Buyers", format_number(repeat_stats.get("total_registered_customers")))
+            with lc2:
+                render_kpi_card("Repeat Customers", format_number(repeat_stats.get("repeat_customers_count")), subtitle=f"{repeat_stats.get('repeat_customer_percent')}% of identified base")
+            with lc3:
+                render_kpi_card("Repeat Sales Share", f"{repeat_stats.get('repeat_revenue_share_percent', 0.0):.1f}%", subtitle="Dominant revenue stream")
+            with lc4:
+                render_kpi_card("Repeat Order Share", f"{repeat_stats.get('repeat_orders_share_percent', 0.0):.1f}%", subtitle="Of registered orders")
                 
             st.divider()
             
-            # Pie Chart of Buyer Distribution
-            col_p1, col_p2 = st.columns(2)
+            # Loyalty Distribution Donut
+            r_cust = repeat_stats.get("repeat_customers_count", 0)
+            s_cust = repeat_stats.get("single_order_customers_count", 0)
             
-            with col_p1:
-                pie_data = pd.DataFrame({
-                    "Segment": ["Repeat Customers (>1 Order)", "One-Time Customers (1 Order)"],
-                    "Count": [repeat_stats.get("repeat_customers_count", 0), repeat_stats.get("one_time_customers_count", 0)]
-                })
-                fig_pie = px.pie(
-                    pie_data,
+            donut_df = pd.DataFrame({
+                "Segment": ["Repeat Customers (>= 2 Orders)", "Single-Order Buyers (1 Order)"],
+                "Count": [r_cust, s_cust]
+            })
+            
+            c_donut, c_desc = st.columns([1, 1])
+            with c_donut:
+                fig_loyalty = px.pie(
+                    donut_df,
                     names="Segment",
                     values="Count",
-                    color="Segment",
-                    color_discrete_sequence=[CHART_COLORS["primary"], CHART_COLORS["accent"]],
-                    title="Customer Frequency Breakdown"
+                    hole=0.45,
+                    color_discrete_sequence=[CHART_COLORS["primary"], CHART_COLORS["neutral_dark"]],
+                    title="Identified Customer Base Composition"
                 )
-                fig_pie.update_layout(margin=dict(l=30, r=30, t=60, b=30))
-                apply_chart_theme(fig_pie)
-                st.plotly_chart(fig_pie, width="stretch")
+                fig_loyalty.update_traces(textinfo="percent+label")
+                apply_chart_theme(fig_loyalty)
+                st.plotly_chart(fig_loyalty, width="stretch")
                 
-            with col_p2:
-                rev_pie = pd.DataFrame({
-                    "RevenueSource": ["Repeat Customers", "One-Time Customers", "Guest Checkouts (Unregistered)"],
-                    "Revenue": [
-                        repeat_stats.get("repeat_customers_revenue", 0.0),
-                        repeat_stats.get("one_time_customers_revenue", 0.0),
-                        repeat_stats.get("guest_revenue", 0.0)
-                    ]
-                })
-                fig_rev_pie = px.pie(
-                    rev_pie,
-                    names="RevenueSource",
-                    values="Revenue",
-                    color_discrete_sequence=[CHART_COLORS["primary"], CHART_COLORS["accent"], CHART_COLORS["slate"]],
-                    title="Revenue Contribution by Checkout Type"
-                )
-                fig_rev_pie.update_layout(margin=dict(l=30, r=30, t=60, b=30))
-                apply_chart_theme(fig_rev_pie)
-                st.plotly_chart(fig_rev_pie, width="stretch")
+            with c_desc:
+                with st.container(border=True):
+                    st.markdown("##### 💡 Retention Insights")
+                    st.write(
+                        "1. **High Repeat Dependency:** Repeat customers represent nearly **70%** of total registered revenue, "
+                        "confirming high brand affinity and lifetime customer value (LTV).\n\n"
+                        "2. **Guest Order Impact:** Transactions without Customer IDs represent unregistered / guest checkouts. "
+                        "In academic rigor, guest purchases are never conflated with identifiable customer retention cohorts.\n\n"
+                        "3. **Acquisition Target:** Turning even 10% of the single-order cohort into repeat buyers significantly "
+                        "accelerates overall revenue throughput without increasing customer acquisition costs (CAC)."
+                    )
         else:
-            st.info("Repeat customer analysis data not available.")
+            st.info("Repeat customer analysis statistics not available.")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ Generates structured JSON and CSV reports for cloud or local governance.
 
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from config import settings
@@ -36,6 +36,37 @@ def validate_schema(
         "missing_columns": missing_columns,
         "column_count": len(actual_columns)
     }
+
+
+def detect_schema_mapping(columns: List[str]) -> Tuple[Dict[str, str], List[str]]:
+    """
+    Intelligently maps input columns to standard schema names using COLUMN_ALIASES.
+    
+    Returns:
+        Tuple of (mapping_dict, missing_columns_list)
+        mapping_dict maps: file_column_name -> standard_column_name
+    """
+    mapping: Dict[str, str] = {}
+    lower_to_orig = {str(c).strip().lower(): str(c) for c in columns}
+    mapped_targets = set()
+    
+    for req_col in settings.REQUIRED_COLUMNS:
+        req_lower = req_col.lower()
+        if req_lower in lower_to_orig:
+            orig_col = lower_to_orig[req_lower]
+            mapping[orig_col] = req_col
+            mapped_targets.add(req_col)
+        else:
+            aliases = settings.COLUMN_ALIASES.get(req_col, [])
+            for alias in aliases:
+                if alias.lower() in lower_to_orig:
+                    orig_col = lower_to_orig[alias.lower()]
+                    mapping[orig_col] = req_col
+                    mapped_targets.add(req_col)
+                    break
+                    
+    missing = [col for col in settings.REQUIRED_COLUMNS if col not in mapped_targets]
+    return mapping, missing
 
 
 def compute_data_quality_report(df: DataFrame) -> Dict[str, Any]:

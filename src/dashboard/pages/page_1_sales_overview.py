@@ -1,7 +1,7 @@
 """
 SalesPulse Analytics - Sales Overview Page
 Displays top-level commercial KPIs, revenue progression, top product revenue shares,
-and commercial summaries.
+Indian Financial Year (FY) filtering, and commercial summaries.
 """
 
 import streamlit as st
@@ -18,6 +18,9 @@ from src.dashboard.utils import (
     format_percent,
     render_kpi_card,
     apply_chart_theme,
+    get_active_currency_config,
+    get_indian_financial_year,
+    get_indian_fy_quarter,
     CHART_COLORS
 )
 
@@ -35,6 +38,36 @@ def render_page():
         st.warning("⚠️ No analytics results found. Please run the pipeline from the **Data Management and Quality** page.")
         return
         
+    symbol, code, rate = get_active_currency_config()
+    
+    # --------------------------------------------------------------------------
+    # Timeline & Indian Financial Year (FY) Filter
+    # --------------------------------------------------------------------------
+    if not monthly_df.empty:
+        monthly_df["Date"] = pd.to_datetime(monthly_df["YearMonth"] + "-01")
+        monthly_df["Indian_FY"] = monthly_df["Date"].apply(get_indian_financial_year)
+        monthly_df["Indian_Quarter"] = monthly_df["Date"].apply(get_indian_fy_quarter)
+        available_fys = ["All Financial Years"] + sorted(list(monthly_df["Indian_FY"].unique()))
+    else:
+        available_fys = ["All Financial Years"]
+        
+    with st.container(border=True):
+        f_col1, f_col2, f_col3 = st.columns([1, 1, 1.5])
+        with f_col1:
+            selected_fy = st.selectbox("📅 Indian Financial Year (1 Apr – 31 Mar):", available_fys, index=0)
+        with f_col2:
+            fy_filtered = monthly_df if selected_fy == "All Financial Years" else monthly_df[monthly_df["Indian_FY"] == selected_fy]
+            avail_qtrs = ["All Quarters"] + sorted(list(fy_filtered["Indian_Quarter"].unique())) if not fy_filtered.empty else ["All Quarters"]
+            selected_qtr = st.selectbox("📆 Financial Quarter:", avail_qtrs, index=0)
+        with f_col3:
+            st.caption(f"**Presentation Currency:** `{code} ({symbol})` | **Multiplier:** `{rate:.2f}x`")
+            if code == "INR":
+                st.caption(f"*(Converted dynamically from canonical GBP at reference rate 1 GBP = ₹{rate:.2f})*")
+            else:
+                st.caption("*(Canonical dataset currency: British Pounds £)*")
+                
+    filtered_monthly = fy_filtered if selected_qtr == "All Quarters" else fy_filtered[fy_filtered["Indian_Quarter"] == selected_qtr]
+
     # --------------------------------------------------------------------------
     # Executive KPI Cards (Row 1) - Streamlit Native Bordered Containers
     # --------------------------------------------------------------------------
@@ -82,22 +115,24 @@ def render_page():
     
     with col_left:
         st.subheader("📈 Monthly Revenue Progression")
-        if not monthly_df.empty:
+        if not filtered_monthly.empty:
             fig_trend = go.Figure()
+            
+            scaled_revenue = filtered_monthly["MonthlyRevenue"] * rate
             
             # Revenue Bar
             fig_trend.add_trace(go.Bar(
-                x=monthly_df["YearMonth"],
-                y=monthly_df["MonthlyRevenue"],
-                name="Monthly Revenue (£)",
+                x=filtered_monthly["YearMonth"],
+                y=scaled_revenue,
+                name=f"Revenue ({symbol})",
                 marker_color=CHART_COLORS["primary"],
-                hovertemplate="<b>%{x}</b><br>Revenue: £%{y:,.2f}<extra></extra>"
+                hovertemplate=f"<b>%{{x}}</b><br>Revenue: {symbol}%{{y:,.2f}}<extra></extra>"
             ))
             
             # Order Count Line
             fig_trend.add_trace(go.Scatter(
-                x=monthly_df["YearMonth"],
-                y=monthly_df["MonthlyOrders"],
+                x=filtered_monthly["YearMonth"],
+                y=filtered_monthly["MonthlyOrders"],
                 name="Order Count",
                 yaxis="y2",
                 mode="lines+markers",
@@ -107,7 +142,7 @@ def render_page():
             ))
             
             fig_trend.update_layout(
-                yaxis=dict(title="Revenue (£)", tickprefix="£", automargin=True, showgrid=True, gridcolor="#F1F5F9"),
+                yaxis=dict(title=f"Revenue ({symbol})", tickprefix=symbol, automargin=True, showgrid=True, gridcolor="#F1F5F9"),
                 yaxis2=dict(title="Order Count", overlaying="y", side="right", automargin=True, showgrid=False),
                 xaxis=dict(title="", tickangle=-30, automargin=True),
                 legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1.0),
@@ -116,12 +151,13 @@ def render_page():
             apply_chart_theme(fig_trend)
             st.plotly_chart(fig_trend, width="stretch")
         else:
-            st.info("Monthly trend data not available.")
+            st.info("No monthly trend data matches the selected financial year/quarter filter.")
             
     with col_right:
         st.subheader("🏆 Top 5 Revenue Products")
         if not top_rev_df.empty:
             top5 = top_rev_df.head(5).copy()
+            top5["ScaledRevenue"] = top5["TotalRevenue"] * rate
             # Truncate description cleanly for legible axes
             top5["ShortDesc"] = top5["Description"].apply(
                 lambda x: str(x)[:24] + "..." if len(str(x)) > 26 else str(x)
@@ -129,22 +165,22 @@ def render_page():
             
             fig_top = px.bar(
                 top5,
-                x="TotalRevenue",
+                x="ScaledRevenue",
                 y="ShortDesc",
                 orientation="h",
-                text="TotalRevenue",
-                color="TotalRevenue",
+                text="ScaledRevenue",
+                color="ScaledRevenue",
                 color_continuous_scale="Blues",
-                labels={"TotalRevenue": "Revenue (£)", "ShortDesc": ""},
-                hover_data={"Description": True, "UnitsSold": True, "TotalRevenue": ":,.2f"}
+                labels={"ScaledRevenue": f"Revenue ({symbol})", "ShortDesc": ""},
+                hover_data={"Description": True, "UnitsSold": True, "ScaledRevenue": ":,.2f"}
             )
             fig_top.update_traces(
-                texttemplate="£%{x:,.0f}",
+                texttemplate=f"{symbol}%{{x:,.0f}}",
                 textposition="inside"
             )
             fig_top.update_layout(
                 yaxis=dict(autorange="reversed", automargin=True, title=""),
-                xaxis=dict(title="Revenue (£)", tickprefix="£", automargin=True),
+                xaxis=dict(title=f"Revenue ({symbol})", tickprefix=symbol, automargin=True),
                 coloraxis_showscale=False,
                 margin=dict(l=10, r=30, t=60, b=45)
             )
@@ -184,8 +220,8 @@ def render_page():
     with sc3:
         with st.container(border=True):
             st.markdown("##### 🛡️ Governance & Policy")
-            st.write("- **Primary Currency:** GBP (£)")
-            st.write("- **Source:** UCI Online Retail (Canonical)")
+            st.write(f"- **Active Currency:** {code} ({symbol})")
+            st.write("- **Canonical Base:** British Pounds (£) - UCI Online Retail")
             st.write("- **Cost Profile:** ₹0 Out-of-Pocket Local Execution")
             st.write("- **Profit Claim:** *None (COGS absent in dataset)*")
             
@@ -196,7 +232,8 @@ def render_page():
                 label="📥 Download Executive KPI Summary (CSV)",
                 data=csv_bytes,
                 file_name="salespulse_executive_kpis.csv",
-                mime="text/csv"
+                mime="text/csv",
+                width="stretch"
             )
 
 

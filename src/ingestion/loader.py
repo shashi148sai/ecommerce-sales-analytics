@@ -6,7 +6,7 @@ Includes automated timestamp normalization across varying date representations.
 
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Dict
 import pandas as pd
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
@@ -49,7 +49,8 @@ def get_download_instructions() -> str:
 def load_raw_data(
     file_path: Union[str, Path],
     spark: Optional[SparkSession] = None,
-    limit: Optional[int] = None
+    limit: Optional[int] = None,
+    column_mapping: Optional[Dict[str, str]] = None
 ) -> DataFrame:
     """
     Loads raw transaction data from CSV or XLSX into a PySpark DataFrame.
@@ -58,6 +59,7 @@ def load_raw_data(
         file_path: Path to the raw CSV or XLSX data file.
         spark: Active SparkSession; if None, an instance is initialized.
         limit: Optional maximum number of rows to ingest.
+        column_mapping: Optional dictionary mapping file columns to canonical names.
         
     Returns:
         PySpark DataFrame containing the raw transactions.
@@ -78,21 +80,44 @@ def load_raw_data(
     suffix = path_obj.suffix.lower()
     
     if suffix == ".csv":
-        df = (
-            spark.read
-            .option("header", "true")
-            .option("mode", "PERMISSIVE")
-            .option("quote", "\"")
-            .option("escape", "\"")
-            .schema(RAW_SCHEMA)
-            .csv(str(path_obj))
-        )
+        if column_mapping:
+            raw_df = (
+                spark.read
+                .option("header", "true")
+                .option("mode", "PERMISSIVE")
+                .option("quote", "\"")
+                .option("escape", "\"")
+                .csv(str(path_obj))
+            )
+            for file_col, target_col in column_mapping.items():
+                if file_col in raw_df.columns:
+                    raw_df = raw_df.withColumnRenamed(file_col, target_col)
+            for col_name in RAW_SCHEMA.names:
+                if col_name not in raw_df.columns:
+                    raw_df = raw_df.withColumn(col_name, F.lit(None).cast("string"))
+            df = raw_df.select(RAW_SCHEMA.names)
+        else:
+            df = (
+                spark.read
+                .option("header", "true")
+                .option("mode", "PERMISSIVE")
+                .option("quote", "\"")
+                .option("escape", "\"")
+                .schema(RAW_SCHEMA)
+                .csv(str(path_obj))
+            )
     elif suffix in (".xlsx", ".xls"):
         # For Excel files, read via Pandas and transfer to PySpark
         pdf = pd.read_excel(path_obj, nrows=limit)
+        if column_mapping:
+            pdf = pdf.rename(columns=column_mapping)
         # Ensure all columns are stringified for uniform raw representation
-        for col in pdf.columns:
-            pdf[col] = pdf[col].astype(str)
+        for col_name in RAW_SCHEMA.names:
+            if col_name not in pdf.columns:
+                pdf[col_name] = None
+            else:
+                pdf[col_name] = pdf[col_name].astype(str)
+        pdf = pdf[RAW_SCHEMA.names]
         df = spark.createDataFrame(pdf, schema=RAW_SCHEMA)
     else:
         raise ValueError(f"Unsupported file format '{suffix}'. Supported: .csv, .xlsx, .xls")

@@ -1,23 +1,24 @@
 # SalesPulse Analytics ⚡
 ### E-Commerce Sales Analytics Using Big Data and Cloud Computing
-*A Combined B.Tech Project for **Big Data Analytics (BDA)** and **Cloud Computing (CC)***
+*A Combined B.Tech Capstone Project for **Big Data Analytics (BDA)** and **Cloud Computing (CC)***
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue.svg)
 ![Apache Spark](https://img.shields.io/badge/Apache_Spark-3.5.9-orange.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-red.svg)
-![Cloud](https://img.shields.io/badge/AWS-Amazon_S3-yellow.svg)
-![Tests](https://img.shields.io/badge/Tests-29%20Passed-brightgreen.svg)
+![Cloud](https://img.shields.io/badge/AWS-Amazon_S3_(Mock_Tested)-yellow.svg)
+![Tests](https://img.shields.io/badge/Tests-39%20Passed-brightgreen.svg)
 ![Cost](https://img.shields.io/badge/Cost-%E2%82%B90_Out--of--Pocket-success.svg)
+![Locale](https://img.shields.io/badge/Locale-en--IN_%7C_Asia--Kolkata-blueviolet.svg)
 
 ---
 
 ## 1. Project Overview
 
-**SalesPulse Analytics** is an end-to-end Big Data and Cloud Computing enterprise web application. It ingests 541,909 real-world e-commerce transaction logs from the **UCI Online Retail dataset**, conducts distributed cleaning and transformations in **Apache Spark (PySpark)**, performs aggregations via **Spark SQL**, persists data locally and to **Amazon S3** under structured enterprise prefixes, and presents insights through an interactive **Streamlit** dashboard.
+**SalesPulse Analytics** is an end-to-end Big Data Analytics and Cloud Computing web application designed for academic excellence and enterprise rigor. It ingests 541,909 real-world e-commerce transaction logs from the canonical **UCI Online Retail benchmark dataset**, conducts distributed schema validation and data quality auditing in **Apache Spark (PySpark 3.5)**, performs multidimensional aggregations via **Spark SQL**, persists data locally and to **Amazon S3** under structured logical prefixes, and presents insights through an interactive, responsive **Streamlit** dashboard.
 
-### Core Academic Integration:
-- **Big Data Analytics (BDA)**: In-memory distributed processing via PySpark 3.5, Catalyst query optimization, Spark SQL aggregations, window functions, and controlled synthetic scalability benchmarking.
-- **Cloud Computing (CC)**: Hybrid storage layer supporting ₹0 offline development and private Amazon S3 replication (`raw/`, `processed/`, `analytics/`, `reports/`, `metadata/`), least-privilege IAM policies, and cloud deployment runbooks.
+### Core Academic Subjects Integrated:
+- **Big Data Analytics (BDA)**: Distributed in-memory data processing using PySpark 3.5, Catalyst query optimization, Spark SQL aggregations, window functions, hold-out demand forecasting, RFM K-Means clustering, and controlled synthetic scalability benchmarking.
+- **Cloud Computing (CC)**: Hybrid storage architecture supporting ₹0 out-of-pocket offline development, mock-tested private Amazon S3 replication (`raw/`, `processed/`, `analytics/`, `reports/`, `metadata/`), least-privilege IAM policies, and documented AWS deployment runbooks.
 
 ---
 
@@ -39,16 +40,31 @@ flowchart LR
 ## 3. Technology Stack
 
 - **Data Processing & Big Data**: Apache Spark 3.5.9, PySpark, Spark SQL
-- **User Interface**: Streamlit, Plotly Express & Graph Objects
-- **Cloud Infrastructure**: Amazon S3 (Private, SSE-AES256), AWS IAM, AWS EC2 / CloudWatch guides
-- **Machine Learning**: Scikit-Learn (Ridge Regression, K-Means Clustering, StandardScaler)
+- **User Interface & Visualizations**: Streamlit (native bordered layout), Plotly Express & Graph Objects
+- **Cloud Infrastructure (Mock-Tested)**: Amazon S3 (Private, SSE-AES256), AWS IAM, AWS EC2 / CloudWatch guides
+- **Machine Learning & Analytics**: Scikit-Learn (Ridge Regression, K-Means Clustering, StandardScaler)
 - **Data Persistence**: Apache Parquet (Snappy), CSV, JSON
-- **Quality & Testing**: pytest (29 Automated Unit & Integration Tests)
-- **Programming Language**: Python 3.13
+- **Quality & Testing**: pytest (39 Automated Unit & Integration Tests, 100% Pass Rate)
+- **Programming Language**: Python 3.13 on Windows / Linux
 
 ---
 
-## 4. Ground Truth Dataset & Verified Results
+## 4. Indian-First Localization & Currency Management
+
+SalesPulse Analytics provides native support for Indian business conventions while strictly preserving canonical dataset integrity:
+
+- **Locale & Timezone**: Configured for `en-IN` and `Asia/Kolkata`.
+- **Date Formatting**: Displayed uniformly in standard `DD-MM-YYYY` format.
+- **Indian Number Grouping**: Formats figures according to the Indian numbering system (`1,00,000` for 1 Lakh, `10,00,000` for 10 Lakh, and `1,00,00,000` for 1 Crore).
+- **Lakh & Crore Compact Views**: Uses `Cr`, `L`, and `K` notations for compact commercial metrics.
+- **Indian Financial Year (FY)**: Follows the statutory 1 April to 31 March fiscal year (e.g. `FY 2010-11`, `FY 2011-12`) with quarterly segmentation (`Q1 Apr-Jun`, `Q2 Jul-Sep`, `Q3 Oct-Dec`, `Q4 Jan-Mar`).
+- **Dual Currency Presentation**:
+  1. **Canonical GBP (£) Default**: Preserves original British Pounds (£) without automatic or silent conversion.
+  2. **Converted INR (₹) Mode**: Dynamically converts amounts using an explicitly disclosed reference rate (default: `1 GBP = ₹106.50`, configurable in sidebar settings) with clear source, target, and reference date disclosure.
+
+---
+
+## 5. Ground Truth Dataset & Verified Results
 
 Audited directly against the canonical **UCI Online Retail Dataset**:
 
@@ -63,27 +79,38 @@ Audited directly against the canonical **UCI Online Retail Dataset**:
 | **Units Sold** | **5,588,376 units** | Net product volume |
 | **Distinct Commercial Orders** | **20,728 orders** | Unique valid invoices |
 | **Average Order Value (AOV)** | **£513.42** | Gross sales / Total orders |
-| **Primary Currency** | **GBP (£)** | UK Retailer origin (No fabricated INR conversion) |
+| **Primary Currency** | **GBP (£)** | UK Retailer origin (INR dynamically available) |
 | **Pipeline Throughput** | **1,809.9 rows/sec** | Measured local CPU batch throughput |
 
 > [!NOTE]
-> **Profit Policy**: The UCI Online Retail dataset contains retail selling prices (`UnitPrice`) but lacks Cost of Goods Sold (COGS). Therefore, profit and margin figures are deliberately **not** claimed.
+> **Profit Policy**: The UCI Online Retail dataset contains retail selling prices (`UnitPrice`) but lacks Cost of Goods Sold (COGS). Therefore, profit and margin claims are deliberately **not** fabricated, adhering to strict academic integrity.
 
 ---
 
-## 5. Dashboard Pages
+## 6. Dashboard Pages
 
-1. **💼 Sales Overview**: Executive KPIs (Gross Sales, Net Sales, Return Rate %, Distinct Orders, AOV), monthly revenue trend, top 5 products, and checkout comparisons.
-2. **📦 Product Analytics**: Top 20 revenue-generating products, volume rankings, and interactive catalog keyword search.
-3. **📈 Sales Trends**: Monthly progression, Month-over-Month (MoM) revenue growth (%), daily fluctuations, and day-of-week / hourly seasonality.
-4. **🌍 Customer and Regional**: Geographic revenue distribution, UK (domestic) vs International markets, and repeat customer retention breakdown.
-5. **🛡️ Data Management & Quality**: Pipeline execution controls, data quality health audit (nulls, duplicates, anomalies), and Amazon S3 sync controls.
-6. **🔮 Forecasting & Segmentation**: 30-day predictive demand forecasting with hold-out error evaluation (MAE, RMSE, MAPE) and RFM customer segmentation via K-Means clustering.
-7. **⚡ System Performance**: PySpark execution latency breakdown by stage, throughput metrics, and synthetic scalability benchmarks.
+1. **💼 Sales Overview**: Executive KPIs (Gross Sales, Net Sales, Return Rate %, Distinct Orders, AOV), Indian Financial Year (FY) filter, monthly revenue progression, top 5 products, and customer mix.
+2. **📦 Product Analytics**: Top 20 revenue-generating products, volume rankings, pricing band analysis, and interactive SKU keyword search.
+3. **📈 Sales Trends**: Monthly progression, Month-over-Month (MoM) revenue growth (%), Indian FY quarter filters, daily sales progression, and day-of-week / hourly seasonality patterns.
+4. **🌍 Customer and Regional**: Geographic revenue distribution, domestic (UK) vs international markets, repeat buyer share, and customer retention dynamics.
+5. **🛡️ Data Management & Quality**: 4-step dataset import and processing interface (Select ➔ Validate & Preview ➔ Configure & Process ➔ Results & Exports), data quality audit, and Amazon S3 management.
+6. **🔮 Forecasting & Segmentation**: 30-day predictive demand forecasting with hold-out validation (MAE, RMSE, MAPE) and RFM customer behavioral clustering (K-Means).
+7. **⚡ System Performance**: PySpark execution latency breakdown by stage, throughput metrics, and controlled scalability experiments.
 
 ---
 
-## 6. Directory Structure
+## 7. 4-Step Data Ingestion Interface
+
+Page 5 incorporates a complete 4-step data engineering workflow:
+
+- **Step 1: Select Dataset**: Choose between the canonical UCI dataset, lightweight sample, or upload custom CSV/Excel files (with drag-and-drop, extension validation, and 100MB size limit check).
+- **Step 2: Validate & Preview (Non-blocking)**: Inferred data types, null counts, duplicate inspection, preview of top 15 records, intelligent schema mapping using aliases (e.g. `order_id` ➔ `InvoiceNo`, `price` ➔ `UnitPrice`), and clear `Valid`/`Warning`/`Invalid` status badges.
+- **Step 3: Configure & Process**: Select execution scale (Full dataset vs 5k, 25k, 50k row limits), review execution workload, and click `⚡ Execute Big Data Pipeline` with genuine stage progress tracking.
+- **Step 4: Results & Exports**: Input vs accepted vs returned vs excluded record accounting, duration, throughput, and one-click downloads for clean CSVs, KPI summaries, and data quality audits.
+
+---
+
+## 8. Directory Structure
 
 ```
 ecommerce-sales-analytics/
@@ -108,7 +135,7 @@ ecommerce-sales-analytics/
 │   ├── analytics/              # Spark SQL Aggregations, Forecasting, Benchmarking
 │   ├── storage/                # Unified Local & Amazon S3 Storage Manager
 │   └── dashboard/              # Streamlit Pages & Plotly Themes
-├── tests/                      # Automated pytest Suite (29 Tests)
+├── tests/                      # Automated pytest Suite (39 Tests)
 └── docs/
     ├── architecture.md         # System Architecture & Design
     ├── bda_spark_methodology.md# Big Data Analytics Theory & Principles
@@ -118,7 +145,7 @@ ecommerce-sales-analytics/
 
 ---
 
-## 7. Installation & Quickstart
+## 9. Installation & Quickstart
 
 ### Step 1: Clone the Repository & Create Virtual Environment
 ```bash
@@ -141,13 +168,13 @@ pip install -r requirements.txt
 ```
 
 ### Step 3: Run the Automated Test Suite
-Verify that all 29 unit and integration tests pass:
+Verify that all 39 unit and integration tests pass:
 ```bash
 pytest -v
 ```
 
 ### Step 4: Run the Big Data Pipeline (Optional CLI Execution)
-To process the dataset and generate all summary tables:
+To process the dataset and generate all analytical summary tables:
 ```bash
 python -c "from src.processing.pipeline import run_pipeline; run_pipeline()"
 ```
@@ -160,10 +187,11 @@ Open your browser at `http://localhost:8501`.
 
 ---
 
-## 8. AWS Cloud Integration (₹0 Out-of-Pocket)
+## 10. AWS Cloud Integration & ₹0 Cost Safety
 
-SalesPulse Analytics runs 100% offline in local mode by default. To connect to AWS Amazon S3 without incurring costs:
+SalesPulse Analytics strictly operates in **local offline mode** by default with zero cloud costs incurred. Amazon S3 integration is verified via automated mocks.
 
+When authorized for future cloud deployment:
 1. Copy `.env.example` to `.env`:
    ```bash
    cp .env.example .env
@@ -174,17 +202,17 @@ SalesPulse Analytics runs 100% offline in local mode by default. To connect to A
    AWS_REGION=us-east-1
    AWS_S3_BUCKET=your-private-bucket-name
    ```
-3. Use AWS credentials via `aws configure` or set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `.env`.
+3. Use AWS credentials via `aws configure` or set IAM role credentials.
 4. The application organizes all cloud objects under structured prefixes:
    - `raw/`: Raw transactional drops
-   - `processed/`: Cleansed sales data
+   - `processed/`: Cleansed sales data (Parquet)
    - `analytics/`: Aggregated tables
    - `reports/`: Data quality audit reports
    - `metadata/`: Pipeline execution logs
 
 ---
 
-## 9. Academic Project Verification
+## 11. Academic Project Verification
 
 For project defense and viva preparation, refer to the documentation:
 - 📖 [System Architecture Documentation](docs/architecture.md)

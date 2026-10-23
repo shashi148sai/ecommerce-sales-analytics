@@ -1,7 +1,7 @@
 """
 SalesPulse Analytics - Product Analytics Page
 Provides deep inspection of catalog performance, top products by revenue and units,
-unit price distribution, and interactive search.
+unit price distribution, and interactive search with currency localization.
 """
 
 import streamlit as st
@@ -12,6 +12,7 @@ from src.dashboard.utils import (
     load_top_products_quantity,
     format_currency,
     format_number,
+    get_active_currency_config,
     apply_chart_theme,
     CHART_COLORS
 )
@@ -28,6 +29,8 @@ def render_page():
         st.warning("⚠️ Product analytics summary is empty. Please process the dataset first.")
         return
         
+    symbol, code, rate = get_active_currency_config()
+    
     tab1, tab2, tab3 = st.tabs(["💰 Highest Revenue Products", "📦 Top Selling by Volume", "🔍 Product Lookup & Search"])
     
     with tab1:
@@ -38,27 +41,30 @@ def render_page():
             with st.container(border=True):
                 top_n = st.slider("Display Count", min_value=5, max_value=20, value=10, key="rev_slider")
                 show_data = st.checkbox("Show Table View", value=True, key="rev_table_chk")
+                st.caption(f"Active Currency: `{code} ({symbol})`")
             
         with col_chart:
             display_df = top_rev_df.head(top_n).copy()
+            display_df["ScaledRevenue"] = display_df["TotalRevenue"] * rate
+            display_df["ScaledAvgUnitPrice"] = display_df["AvgUnitPrice"] * rate
             display_df["ShortDesc"] = display_df["Description"].apply(
                 lambda x: str(x)[:30] + "..." if len(str(x)) > 32 else str(x)
             )
             fig = px.bar(
                 display_df,
-                x="TotalRevenue",
+                x="ScaledRevenue",
                 y="ShortDesc",
                 orientation="h",
-                text="TotalRevenue",
-                color="TotalRevenue",
+                text="ScaledRevenue",
+                color="ScaledRevenue",
                 color_continuous_scale="Viridis",
-                labels={"TotalRevenue": "Total Revenue (£)", "ShortDesc": ""},
-                title=f"Top {top_n} Products by Total Revenue (£)"
+                labels={"ScaledRevenue": f"Total Revenue ({symbol})", "ShortDesc": ""},
+                title=f"Top {top_n} Products by Total Revenue ({symbol})"
             )
-            fig.update_traces(texttemplate="£%{x:,.0f}", textposition="inside")
+            fig.update_traces(texttemplate=f"{symbol}%{{x:,.0f}}", textposition="inside")
             fig.update_layout(
                 yaxis=dict(autorange="reversed", automargin=True, title=""),
-                xaxis=dict(title="Revenue (£)", tickprefix="£", automargin=True),
+                xaxis=dict(title=f"Revenue ({symbol})", tickprefix=symbol, automargin=True),
                 coloraxis_showscale=False,
                 margin=dict(l=20, r=30, t=60, b=40)
             )
@@ -67,11 +73,11 @@ def render_page():
             
         if show_data:
             st.dataframe(
-                display_df[["StockCode", "Description", "TotalRevenue", "UnitsSold", "OrderCount", "AvgUnitPrice"]].style.format({
-                    "TotalRevenue": "£{:,.2f}",
+                display_df[["StockCode", "Description", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"]].style.format({
+                    "ScaledRevenue": f"{symbol}{{:,.2f}}",
                     "UnitsSold": "{:,}",
                     "OrderCount": "{:,}",
-                    "AvgUnitPrice": "£{:.2f}"
+                    "ScaledAvgUnitPrice": f"{symbol}{{:,.2f}}"
                 }),
                 width="stretch"
             )
@@ -101,49 +107,43 @@ def render_page():
                 color="UnitsSold",
                 color_continuous_scale="Teal",
                 labels={"UnitsSold": "Units Sold", "ShortDesc": ""},
-                title=f"Top {top_n_qty} Products by Units Sold"
+                title=f"Top {top_n_qty} Products by Physical Units Sold"
             )
             fig_qty.update_traces(texttemplate="%{x:,}", textposition="inside")
             fig_qty.update_layout(
                 yaxis=dict(autorange="reversed", automargin=True, title=""),
-                xaxis=dict(title="Units Sold", automargin=True),
+                xaxis=dict(title="Physical Units Sold", automargin=True),
                 coloraxis_showscale=False,
                 margin=dict(l=20, r=30, t=60, b=40)
             )
             apply_chart_theme(fig_qty)
             st.plotly_chart(fig_qty, width="stretch")
             
-        st.dataframe(
-            display_qty_df[["StockCode", "Description", "UnitsSold", "TotalRevenue", "OrderCount"]].style.format({
-                "TotalRevenue": "£{:,.2f}",
-                "UnitsSold": "{:,}",
-                "OrderCount": "{:,}"
-            }),
-            width="stretch"
-        )
-        
     with tab3:
-        st.subheader("Product Catalog Search")
-        search_query = st.text_input("Enter Product Description or StockCode", placeholder="e.g. HEART, LANTERN, 85123A")
-        
-        merged_products = pd.concat([top_rev_df, top_qty_df]).drop_duplicates(subset=["StockCode"])
+        st.subheader("Search Product Catalog")
+        search_query = st.text_input("Enter SKU/StockCode or Description Keyword:", placeholder="e.g. WHITE HANGING HEART or 85123A")
         
         if search_query:
-            filtered = merged_products[
-                merged_products["Description"].str.contains(search_query, case=False, na=False) |
-                merged_products["StockCode"].str.contains(search_query, case=False, na=False)
-            ]
-            st.write(f"Found **{len(filtered)}** matching products:")
+            matched = top_rev_df[
+                top_rev_df["Description"].str.contains(search_query, case=False, na=False) |
+                top_rev_df["StockCode"].str.contains(search_query, case=False, na=False)
+            ].copy()
+            
+            matched["ScaledRevenue"] = matched["TotalRevenue"] * rate
+            matched["ScaledAvgUnitPrice"] = matched["AvgUnitPrice"] * rate
+            
+            st.write(f"Found **{len(matched)}** matching catalog items:")
             st.dataframe(
-                filtered[["StockCode", "Description", "TotalRevenue", "UnitsSold", "OrderCount"]].style.format({
-                    "TotalRevenue": "£{:,.2f}",
+                matched[["StockCode", "Description", "ScaledRevenue", "UnitsSold", "OrderCount", "ScaledAvgUnitPrice"]].style.format({
+                    "ScaledRevenue": f"{symbol}{{:,.2f}}",
                     "UnitsSold": "{:,}",
-                    "OrderCount": "{:,}"
+                    "OrderCount": "{:,}",
+                    "ScaledAvgUnitPrice": f"{symbol}{{:,.2f}}"
                 }),
                 width="stretch"
             )
         else:
-            st.info("Type a keyword or StockCode above to filter products.")
+            st.info("Enter a search term above to filter and inspect individual catalog SKUs.")
 
 
 if __name__ == "__main__":
