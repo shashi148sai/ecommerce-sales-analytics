@@ -78,17 +78,32 @@ def render_page():
         st.divider()
         
         # Plot Historical vs Hold-out Actuals vs Forecast
-        history_df = pd.DataFrame(forecast_results["history"])
-        eval_df = pd.DataFrame(forecast_results["holdout_evaluation"])
-        future_df = pd.DataFrame(forecast_results["forecast"])
+        history_df = pd.DataFrame(forecast_results.get("history", []))
+        eval_df = pd.DataFrame(forecast_results.get("holdout_evaluation", []))
+        future_df = pd.DataFrame(forecast_results.get("forecast", []))
         
-        # Scale values by active currency rate
-        history_df["ScaledRevenue"] = history_df["DailyRevenue"] * rate
-        eval_df["ScaledActual"] = eval_df["DailyRevenue"] * rate
-        eval_df["ScaledPredicted"] = eval_df["PredictedRevenue"] * rate
-        future_df["ScaledForecast"] = future_df["ForecastedRevenue"] * rate
-        future_df["ScaledUpper"] = future_df["UpperBound"] * rate
-        future_df["ScaledLower"] = future_df["LowerBound"] * rate
+        # Schema resilience: Guarantee DailyRevenue and ActualRevenue
+        if not history_df.empty:
+            if "DailyRevenue" not in history_df.columns and "ActualRevenue" in history_df.columns:
+                history_df["DailyRevenue"] = history_df["ActualRevenue"]
+            if "ActualRevenue" not in history_df.columns and "DailyRevenue" in history_df.columns:
+                history_df["ActualRevenue"] = history_df["DailyRevenue"]
+            history_df["ScaledRevenue"] = history_df["DailyRevenue"] * rate
+            
+        if not eval_df.empty:
+            if "DailyRevenue" not in eval_df.columns and "ActualRevenue" in eval_df.columns:
+                eval_df["DailyRevenue"] = eval_df["ActualRevenue"]
+            if "ActualRevenue" not in eval_df.columns and "DailyRevenue" in eval_df.columns:
+                eval_df["ActualRevenue"] = eval_df["DailyRevenue"]
+            eval_df["ScaledActual"] = eval_df["DailyRevenue"] * rate
+            eval_df["ScaledPredicted"] = eval_df["PredictedRevenue"] * rate
+            
+        if not future_df.empty:
+            if "ForecastedRevenue" not in future_df.columns and "PredictedRevenue" in future_df.columns:
+                future_df["ForecastedRevenue"] = future_df["PredictedRevenue"]
+            future_df["ScaledForecast"] = future_df["ForecastedRevenue"] * rate
+            future_df["ScaledUpper"] = future_df["UpperBound"] * rate
+            future_df["ScaledLower"] = future_df["LowerBound"] * rate
         
         fig = go.Figure()
         

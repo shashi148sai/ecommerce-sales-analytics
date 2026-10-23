@@ -13,6 +13,103 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
+def validate_and_prepare_daily_series(
+    daily_sales_df: pd.DataFrame,
+    min_observed_days: int = 14
+) -> pd.DataFrame:
+    """
+    Validates, normalizes, and prepares a daily time-series DataFrame into a canonical schema:
+    ['Date', 'DailyRevenue']
+    
+    Robust against:
+    - Differing date column names ('Date', 'InvoiceDate', 'order_date', 'transaction_date', etc.)
+    - Differing revenue column names ('DailyRevenue', 'Revenue', 'TotalRevenue', 'LineTotal', 'SalesAmount', etc.)
+    - Missing or unparseable timestamps (coerced and filtered safely)
+    - Null or negative revenue amounts (cleaned and clamped)
+    - Multiple transactions on the same day (aggregated by date)
+    - Insufficient observed history (checked BEFORE calendar resampling to prevent fabricated zeroes)
+    - Extremely sparse dates (checked to avoid creating artificial data across multi-year gaps)
+    """
+    if daily_sales_df is None or len(daily_sales_df) == 0:
+        raise ValueError("Cannot perform forecasting: input dataset is empty.")
+        
+    df = daily_sales_df.copy()
+    
+    # Identify Date column
+    date_col = None
+    for candidate in ["Date", "InvoiceDateOnly", "InvoiceDate", "order_date", "date", "OrderDate", "transaction_date"]:
+        if candidate in df.columns:
+            date_col = candidate
+            break
+    if date_col is None:
+        for c in df.columns:
+            c_str = str(c).strip().lower()
+            if "date" in c_str or "time" in c_str or "day" in c_str:
+                date_col = c
+                break
+    if date_col is None:
+        raise ValueError("Cannot perform forecasting: no usable transaction date column found in dataset.")
+        
+    # Identify Revenue column
+    rev_col = None
+    for candidate in ["DailyRevenue", "Revenue", "TotalRevenue", "LineTotal", "SalesAmount", "Sales", "NetRevenue", "Amount"]:
+        if candidate in df.columns:
+            rev_col = candidate
+            break
+    if rev_col is None:
+        for c in df.columns:
+            if c != date_col:
+                c_str = str(c).strip().lower()
+                if any(term in c_str for term in ["rev", "sales", "amount", "total", "price"]):
+                    rev_col = c
+                    break
+    if rev_col is None:
+        raise ValueError("Cannot perform forecasting: no usable revenue column (e.g. 'DailyRevenue', 'LineTotal') found.")
+        
+    # Standardize column parsing and clean invalid data
+    clean_dates = pd.to_datetime(df[date_col], errors="coerce")
+    clean_rev = pd.to_numeric(df[rev_col], errors="coerce")
+    
+    clean_df = pd.DataFrame({"Date": clean_dates, "DailyRevenue": clean_rev})
+    clean_df = clean_df.dropna(subset=["Date", "DailyRevenue"])
+    
+    if len(clean_df) == 0:
+        raise ValueError("Cannot perform forecasting: no valid dates or revenue values found in dataset.")
+        
+    # Non-negative revenue clamping (returns handled by isolating gross/net sales beforehand)
+    clean_df["DailyRevenue"] = clean_df["DailyRevenue"].clip(lower=0.0)
+    
+    # Normalize timestamps to date only and aggregate multi-transaction days
+    clean_df["Date"] = clean_df["Date"].dt.normalize()
+    daily_grouped = clean_df.groupby("Date", as_index=False)["DailyRevenue"].sum()
+    daily_grouped = daily_grouped.sort_values("Date").reset_index(drop=True)
+    
+    observed_days = len(daily_grouped)
+    if observed_days < min_observed_days:
+        raise ValueError(
+            f"Insufficient time-series history for forecasting: minimum {min_observed_days} distinct observed daily data points required, but found {observed_days}."
+        )
+        
+    positive_days = (daily_grouped["DailyRevenue"] > 0).sum()
+    if positive_days < max(min_observed_days // 2, 7):
+        raise ValueError(
+            f"Insufficient positive daily revenue records ({positive_days} days) to train a predictive model."
+        )
+        
+    # Check date span density to prevent fabricating hundreds of zeroes across sparse multi-year gaps
+    min_date = daily_grouped["Date"].min()
+    max_date = daily_grouped["Date"].max()
+    span_days = (max_date - min_date).days + 1
+    if span_days > 0 and (observed_days / span_days) < 0.10:
+        raise ValueError(
+            f"Historical transaction dates are too sparse for continuous time-series forecasting: observed {observed_days} active days across a {span_days}-day calendar span ({observed_days/span_days:.1%} density)."
+        )
+        
+    # Continuous calendar regularization for regular business operations (closed days set to 0.0)
+    resampled = daily_grouped.set_index("Date").resample("D")["DailyRevenue"].sum().fillna(0.0).reset_index()
+    return resampled
+
+
 def perform_sales_forecasting(
     daily_sales_df: pd.DataFrame,
     forecast_days: int = 30,
@@ -23,28 +120,27 @@ def perform_sales_forecasting(
     with day-of-week seasonality, evaluated rigorously on a chronological hold-out set.
     
     Args:
-        daily_sales_df: DataFrame containing 'Date' and 'DailyRevenue'
-        forecast_days: Number of future days to project
-        test_ratio: Proportion of recent historical data reserved for hold-out evaluation
+        daily_sales_df: DataFrame containing date and daily revenue columns.
+        forecast_days: Number of future days to project.
+        test_ratio: Proportion of recent historical data reserved for hold-out evaluation.
         
     Returns:
         Dictionary containing historical actuals, train/test evaluation metrics (MAE, RMSE, MAPE),
-        and future forecasted values.
+        and future forecasted values with consistent schema containing Date, DailyRevenue,
+        ActualRevenue, and PredictedRevenue.
     """
-    df = daily_sales_df.copy()
-    df["Date"] = pd.to_datetime(df["Date"])
-    df = df.sort_values("Date").reset_index(drop=True)
-    
-    # Resample to continuous daily frequency to ensure regular time steps
-    df = df.set_index("Date").resample("D")["DailyRevenue"].sum().fillna(0.0).reset_index()
-    
+    df = validate_and_prepare_daily_series(daily_sales_df, min_observed_days=14)
     n_total = len(df)
-    if n_total < 14:
-        raise ValueError("Insufficient time-series history for forecasting (minimum 14 daily data points required).")
         
     # Feature engineering: trend index, day of week, day of month, lags
     df["time_idx"] = np.arange(n_total)
-    df["day_of_week"] = getattr(df["Date"].dt, "day_of_week", df["Date"].dt.dayofweek)
+    
+    # Compatible day-of-week extraction for modern pandas versions
+    if hasattr(df["Date"].dt, "day_of_week"):
+        df["day_of_week"] = df["Date"].dt.day_of_week
+    else:
+        df["day_of_week"] = df["Date"].dt.dayofweek
+        
     df["day_of_month"] = df["Date"].dt.day
     df["lag_1"] = df["DailyRevenue"].shift(1).bfill()
     df["lag_7"] = df["DailyRevenue"].shift(7).bfill()
@@ -96,7 +192,7 @@ def perform_sales_forecasting(
     
     for i, f_date in enumerate(future_dates, start=1):
         idx = last_idx + i
-        dow = getattr(f_date, "day_of_week", f_date.dayofweek)
+        dow = f_date.day_of_week if hasattr(f_date, "day_of_week") else f_date.dayofweek
         dom = f_date.day
         lag1 = current_series[-1]
         lag7 = current_series[-7] if len(current_series) >= 7 else current_series[-1]
@@ -106,23 +202,36 @@ def perform_sales_forecasting(
         pred = max(0.0, float(model.predict(feats_df)[0]))
         current_series.append(pred)
         
+        pred_rounded = round(pred, 2)
         future_records.append({
             "Date": f_date.strftime("%Y-%m-%d"),
-            "ForecastedRevenue": round(pred, 2),
+            "ForecastedRevenue": pred_rounded,
+            "PredictedRevenue": pred_rounded,
+            "DailyRevenue": pred_rounded,
             "LowerBound": round(max(0.0, pred - 1.96 * mae), 2),
             "UpperBound": round(pred + 1.96 * mae, 2)
         })
         
     forecast_df = pd.DataFrame(future_records)
     
-    # Format actual history for plotting
+    # Format actual history for plotting - provides BOTH DailyRevenue and ActualRevenue
     history_records = [
-        {"Date": r["Date"].strftime("%Y-%m-%d"), "DailyRevenue": round(r["DailyRevenue"], 2)}
+        {
+            "Date": r["Date"].strftime("%Y-%m-%d"),
+            "DailyRevenue": round(float(r["DailyRevenue"]), 2),
+            "ActualRevenue": round(float(r["DailyRevenue"]), 2)
+        }
         for _, r in df.iterrows()
     ]
     
+    # Format test evaluation records - provides BOTH DailyRevenue and ActualRevenue along with PredictedRevenue
     test_eval_records = [
-        {"Date": r["Date"].strftime("%Y-%m-%d"), "ActualRevenue": round(r["DailyRevenue"], 2), "PredictedRevenue": r["PredictedRevenue"]}
+        {
+            "Date": r["Date"].strftime("%Y-%m-%d"),
+            "DailyRevenue": round(float(r["DailyRevenue"]), 2),
+            "ActualRevenue": round(float(r["DailyRevenue"]), 2),
+            "PredictedRevenue": round(float(r["PredictedRevenue"]), 2)
+        }
         for _, r in test_df.iterrows()
     ]
     
@@ -136,7 +245,7 @@ def perform_sales_forecasting(
         },
         "history": history_records,
         "holdout_evaluation": test_eval_records,
-        "forecast": forecast_df.to_dict(orient="records")
+        "forecast": future_records
     }
 
 
