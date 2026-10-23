@@ -10,6 +10,24 @@ from pyspark.sql import SparkSession
 from config import settings
 
 
+def get_windows_short_path(path_str: str) -> str:
+    """Returns 8.3 short path on Windows to avoid space-related execution errors in PySpark."""
+    if sys.platform == "win32" and " " in path_str:
+        try:
+            import ctypes
+            from ctypes import wintypes
+            _GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
+            _GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+            _GetShortPathNameW.restype = wintypes.DWORD
+            buf = ctypes.create_unicode_buffer(1024)
+            res = _GetShortPathNameW(path_str, buf, 1024)
+            if res and buf.value:
+                return buf.value
+        except Exception:
+            pass
+    return path_str
+
+
 def get_spark_session(app_name: str = None, master: str = None) -> SparkSession:
     """
     Creates or retrieves an active SparkSession with Windows-safe environment variables.
@@ -21,9 +39,10 @@ def get_spark_session(app_name: str = None, master: str = None) -> SparkSession:
     Returns:
         SparkSession instance.
     """
-    # Ensure Spark workers use the identical Python interpreter as the driver
-    os.environ["PYSPARK_PYTHON"] = sys.executable
-    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+    # Ensure Spark workers use the identical Python interpreter as the driver (Windows space-safe)
+    safe_python = get_windows_short_path(sys.executable)
+    os.environ["PYSPARK_PYTHON"] = safe_python
+    os.environ["PYSPARK_DRIVER_PYTHON"] = safe_python
     
     # Configure lightweight JVM memory to respect laptop RAM constraints
     builder = (

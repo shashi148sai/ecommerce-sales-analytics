@@ -497,15 +497,19 @@ def load_cleaned_sales_sample(limit: int = 10000) -> pd.DataFrame:
 # Chart Theming
 # ------------------------------------------------------------------------------
 CHART_COLORS = {
-    "primary": "#1E3A8A",     # Deep Navy / Royal Blue
-    "secondary": "#0D9488",   # Teal
-    "accent": "#D97706",      # Warm Amber / Saffron
-    "danger": "#DC2626",      # Crimson / Red
-    "success": "#059669",     # Emerald Green
-    "purple": "#7C3AED",      # Royal Violet
-    "slate": "#64748B",       # Slate grey
-    "neutral_dark": "#334155", # Dark Slate
-    "neutral_light": "#F1F5F9" # Light Slate
+    "primary": "#1E3A8A",      # Deep Navy / Royal Blue
+    "secondary": "#0D9488",    # Teal
+    "accent": "#D97706",       # Warm Amber / Saffron
+    "danger": "#DC2626",       # Crimson / Red
+    "warning": "#D97706",      # Amber / Warning
+    "success": "#059669",      # Emerald Green
+    "purple": "#7C3AED",       # Royal Violet
+    "slate": "#64748B",        # Slate grey
+    "neutral_dark": "#334155",  # Dark Slate
+    "neutral_light": "#F1F5F9", # Light Slate
+    "accent_teal": "#0D9488",  # Teal alias
+    "accent_purple": "#7C3AED",# Purple alias
+    "info": "#2563EB",         # Info blue
 }
 
 

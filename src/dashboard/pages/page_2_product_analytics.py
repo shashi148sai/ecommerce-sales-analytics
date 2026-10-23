@@ -214,7 +214,13 @@ def render_page():
                     names="Category",
                     values="ScaledRevenue",
                     hole=0.45,
-                    color_discrete_sequence=[CHART_COLORS["primary"], CHART_COLORS["accent_teal"], CHART_COLORS["accent_purple"], CHART_COLORS["warning"], CHART_COLORS["info"]],
+                    color_discrete_sequence=[
+                        CHART_COLORS["primary"],
+                        CHART_COLORS["secondary"],
+                        CHART_COLORS["accent"],
+                        CHART_COLORS["purple"],
+                        CHART_COLORS["success"]
+                    ],
                     title=f"Revenue Distribution by Department ({symbol})"
                 )
                 fig_cat.update_traces(textinfo="percent+label")
