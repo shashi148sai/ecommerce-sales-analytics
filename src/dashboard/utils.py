@@ -748,39 +748,15 @@ header[data-testid="stHeader"] {
 
 
 def render_header_bar():
-    """Renders a sleek enterprise top navigation bar with clean branding and real action buttons."""
-    symbol, code, _ = get_active_currency_config()
-    meta = load_pipeline_metadata()
-    dataset_name = meta.get("dataset_file", "No Dataset Loaded") if meta else "No Dataset Loaded"
-    
-    with st.container():
-        col_logo, col_info, col_btn_import, col_btn_refresh = st.columns([2.2, 2.8, 1.2, 0.9])
-        with col_logo:
-            st.markdown("### ⚡ **SalesPulse** Analytics")
-        with col_info:
-            st.markdown(
-                f"<div style='padding-top: 10px; color: #475569; font-size: 0.92rem;'>"
-                f"📁 <b>Dataset:</b> {dataset_name} &nbsp;•&nbsp; <b>Currency:</b> {code} ({symbol})"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-        with col_btn_import:
-            if st.button("📥 Import Data", key="hdr_btn_import", use_container_width=True, help="Upload, enter or select a new sales dataset"):
-                st.session_state["nav_selection"] = "📥 Upload & Manage Data"
-                st.rerun()
-        with col_btn_refresh:
-            if st.button("🔄 Refresh", key="hdr_btn_refresh", use_container_width=True, help="Refresh dashboard views and metrics"):
-                st.rerun()
-        st.markdown("<hr style='margin: 0.2rem 0 1.1rem 0; border: none; border-top: 1px solid #E2E8F0;' />", unsafe_allow_html=True)
+    """Header bar omitted to keep views clean, modern, and uncluttered."""
+    pass
 
 
 def render_footer():
-    """Renders a sleek, professional SaaS footer with architecture and credentials."""
-    st.markdown("<hr style='margin: 3.5rem 0 1.5rem 0; border: none; border-top: 1px solid #E2E8F0;' />", unsafe_allow_html=True)
-    f_col1, f_col2, f_col3 = st.columns([1.5, 2, 1.5])
+    """Renders a sleek, clean, uncluttered footer."""
+    st.markdown("<hr style='margin: 3rem 0 1rem 0; border: none; border-top: 1px solid #E2E8F0;' />", unsafe_allow_html=True)
+    f_col1, f_col2 = st.columns([2, 1])
     with f_col1:
-        st.caption("⚡ **SalesPulse Analytics Enterprise**\n\nBig Data Analytics (BDA) & Cloud Computing (CC)")
+        st.caption("⚡ **SalesPulse Analytics** • E-Commerce Sales Intelligence")
     with f_col2:
-        st.caption("Powered by **Apache Spark 3.5**, **Spark SQL**, **Parquet Lakehouse**, and **Amazon S3**\n\nVerified ₹0 Out-of-Pocket Local Execution Mode")
-    with f_col3:
-        st.caption("Localization: **Indian Rupees (₹)** • **DD-MM-YYYY** • **Lakh/Crore**\n\nSalesPulse Analytics © 2026")
+        st.caption("SalesPulse Analytics © 2026")

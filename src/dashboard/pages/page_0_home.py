@@ -27,7 +27,7 @@ def render_page():
     # --------------------------------------------------------------------------
     st.title("⚡ SalesPulse Analytics")
     st.markdown(
-        "#### Modern Enterprise Sales Intelligence • Powered by Apache Spark & Cloud Architecture"
+        "#### Modern Enterprise Sales Intelligence & Business Analytics"
     )
     st.caption(
         "Process, analyze, and visualize high-volume e-commerce transaction data. "

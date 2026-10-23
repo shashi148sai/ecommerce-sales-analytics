@@ -24,6 +24,8 @@ from src.dashboard.pages import (
     page_settings as p_settings
 )
 import importlib
+import src.dashboard.utils as dash_utils
+importlib.reload(dash_utils)
 for _mod in [p0, p_upload, p1, p2, p3, p4, p_quality, p_settings]:
     importlib.reload(_mod)
 
@@ -164,8 +166,7 @@ with st.sidebar:
     st.caption("SalesPulse Analytics © 2026")
 
 # ------------------------------------------------------------------------------
-# Main Page Body: Global Header + Active View + Footer
+# Main Page Body: Active View + Footer
 # ------------------------------------------------------------------------------
-render_header_bar()
 pages[selected_page]()
 render_footer()
