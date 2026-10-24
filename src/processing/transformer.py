@@ -46,6 +46,20 @@ def transform_and_clean_data(raw_df: DataFrame) -> Tuple[DataFrame, DataFrame, D
     # 1. Deduplicate records
     deduped_df = raw_df.dropDuplicates()
 
+    # Guarantee canonical columns exist on Spark DataFrame even for arbitrary uploaded schemas
+    for col_name, default_val in [
+        ("InvoiceNo", "INV-00001"),
+        ("StockCode", "SKU-0001"),
+        ("Description", "GENERAL MERCHANDISE"),
+        ("CustomerID", "CUST-0001"),
+        ("Country", "India"),
+        ("Quantity", 1),
+        ("UnitPrice", 50.0),
+        ("InvoiceDate", "2024-01-01 12:00:00")
+    ]:
+        if col_name not in deduped_df.columns:
+            deduped_df = deduped_df.withColumn(col_name, F.lit(default_val))
+
     # 2. Parse timestamps and temporal dimensions
     time_df = parse_invoice_timestamp(deduped_df, "InvoiceDate")
 

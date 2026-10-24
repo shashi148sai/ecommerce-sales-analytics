@@ -404,11 +404,9 @@ def render_page():
             for field in fields_to_map:
                 field_meta = settings.FIELD_DEFINITIONS.get(field, {})
                 label = field_meta.get("label", field)
-                if field == "Description":
-                    req_badge = "**(Required)**"
-                elif field in ["UnitPrice", "SalesAmount"]:
-                    req_badge = "**(Required: Price or Total)**"
-                elif field in ["InvoiceNo", "StockCode", "Quantity", "InvoiceDate"]:
+                if field in ["UnitPrice", "SalesAmount"]:
+                    req_badge = "*(Auto-Detected or ₹50 Default)*"
+                elif field in ["Description", "StockCode", "Quantity", "InvoiceNo", "InvoiceDate", "CustomerID", "Country"]:
                     req_badge = "*(Auto-Generated if Missing)*"
                 else:
                     req_badge = "*(Optional)*"
@@ -474,21 +472,25 @@ def render_page():
         st.markdown("#### ⚡ Launch Analytics Engine")
         st.caption("Calculates sales KPIs, product rankings, temporal patterns, and customer cohorts using PySpark & Spark SQL.")
         
-        # Check minimum requirements: UnitPrice or SalesAmount is sufficient (Quantity defaults to 1)
+        # Smart fallback defaults ensure analysis ALWAYS runs, even with unmapped or random columns
         mapped_targets = set(user_mapping.values())
         has_min_rev = ("UnitPrice" in mapped_targets) or ("SalesAmount" in mapped_targets) or ("Quantity" in mapped_targets and "UnitPrice" in mapped_targets)
         
         if not has_min_rev:
-            st.warning("⚠️ To run the sales analytics engine, please map **Unit Selling Price** (or Total Sales Amount) to your price column above.")
+            st.info("💡 **Smart Auto-Fill Active:** No explicit price column selected. Realistic default commercial values (default ₹50.00/unit) will be used automatically so your dataset runs instantly.")
         else:
-            if "Quantity" not in mapped_targets:
-                st.info("💡 **Single-Unit Transaction Mode:** No quantity column mapped. Quantity will automatically default to `1` per purchase line.")
-            if "InvoiceNo" not in mapped_targets:
-                st.caption("ℹ️ Sequential transaction IDs (`INV-00001`, `INV-00002`...) will be assigned automatically.")
+            st.success("✅ **Price & Transaction Mapping Confirmed.** Ready for distributed Big Data processing.")
+
+        if "Quantity" not in mapped_targets:
+            st.caption("💡 **Single-Unit Transaction Mode:** Quantity defaults to `1` per purchase line.")
+        if "InvoiceNo" not in mapped_targets:
+            st.caption("ℹ️ Sequential transaction IDs (`INV-00001`, `INV-00002`...) will be assigned automatically.")
+        if "InvoiceDate" not in mapped_targets:
+            st.caption("ℹ️ Realistic temporal order dates will be assigned automatically across the fiscal year.")
             
         exec_col1, exec_col2 = st.columns([1.5, 1])
         with exec_col1:
-            run_btn = st.button("⚡ Analyze My Data", type="primary", disabled=(not has_min_rev or st.session_state["is_processing"]))
+            run_btn = st.button("⚡ Analyze My Data", type="primary", disabled=st.session_state.get("is_processing", False))
             
         if run_btn:
             st.session_state["is_processing"] = True

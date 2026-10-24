@@ -103,29 +103,85 @@ def normalize_pandas_dataframe(
     # Rename mapped columns
     normalized = normalized.rename(columns=mapping)
     
-    # Auto-synthesize missing columns for consumer transaction datasets (e.g. shopping.csv)
+    import numpy as np
+    
+    # 1. Guarantee Description (auto-detect candidate or synthesize default products)
+    if "Description" not in normalized.columns:
+        candidate_desc_cols = [
+            c for c in normalized.columns 
+            if any(term in str(c).lower() for term in ["desc", "name", "item", "product", "title", "goods", "article", "category", "label"])
+        ]
+        if candidate_desc_cols:
+            normalized["Description"] = normalized[candidate_desc_cols[0]].astype(str).str.strip()
+        else:
+            obj_cols = [c for c in normalized.columns if normalized[c].dtype == object and c not in ["InvoiceNo", "StockCode", "InvoiceDate", "Country", "CustomerID"]]
+            if obj_cols:
+                normalized["Description"] = normalized[obj_cols[0]].astype(str).str.strip()
+            else:
+                normalized["Description"] = [f"Product Item {i+1}" for i in range(len(normalized))]
+    normalized["Description"] = normalized["Description"].fillna("GENERAL MERCHANDISE").astype(str).str.strip().replace({"": "GENERAL MERCHANDISE"})
+    
+    # 2. Guarantee Quantity (auto-default to 1 per transaction line if missing or invalid)
     if "Quantity" not in normalized.columns:
         normalized["Quantity"] = 1
+    else:
+        normalized["Quantity"] = pd.to_numeric(normalized["Quantity"], errors="coerce").fillna(1).astype(int)
+        if (normalized["Quantity"] == 0).all():
+            normalized["Quantity"] = 1
+            
+    # 3. Guarantee UnitPrice (auto-detect price, sales amount, or generate realistic commercial values)
+    if "UnitPrice" not in normalized.columns:
+        if "SalesAmount" in normalized.columns:
+            normalized["UnitPrice"] = pd.to_numeric(normalized["SalesAmount"], errors="coerce").fillna(50.0)
+        else:
+            candidate_price_cols = [
+                c for c in normalized.columns 
+                if any(term in str(c).lower() for term in ["price", "amount", "cost", "rate", "val", "total", "spend", "usd", "inr", "gbp"])
+            ]
+            if candidate_price_cols:
+                normalized["UnitPrice"] = pd.to_numeric(normalized[candidate_price_cols[0]], errors="coerce").fillna(50.0)
+            else:
+                num_cols = [c for c in normalized.columns if pd.api.types.is_numeric_dtype(normalized[c]) and c != "Quantity"]
+                if num_cols:
+                    normalized["UnitPrice"] = pd.to_numeric(normalized[num_cols[0]], errors="coerce").abs().fillna(50.0)
+                else:
+                    np.random.seed(42)
+                    normalized["UnitPrice"] = np.random.uniform(25.0, 120.0, size=len(normalized)).round(2)
+    normalized["UnitPrice"] = pd.to_numeric(normalized["UnitPrice"], errors="coerce").fillna(50.0).abs()
+    if (normalized["UnitPrice"] <= 0).all():
+        normalized["UnitPrice"] = 50.0
         
-    if "UnitPrice" not in normalized.columns and "SalesAmount" in normalized.columns:
-        normalized["UnitPrice"] = normalized["SalesAmount"]
-        
+    # 4. Guarantee InvoiceNo (sequential unique invoice IDs)
     if "InvoiceNo" not in normalized.columns:
         normalized["InvoiceNo"] = [f"INV-{i+1:05d}" for i in range(len(normalized))]
+    else:
+        normalized["InvoiceNo"] = normalized["InvoiceNo"].fillna("INV-00001").astype(str).str.strip().replace({"": "INV-00001"})
         
+    # 5. Guarantee StockCode (SKU codes derived from description or synthetic index)
     if "StockCode" not in normalized.columns:
-        if "Category" in normalized.columns and "Description" in normalized.columns:
+        if "Category" in normalized.columns:
             normalized["StockCode"] = (
                 normalized["Category"].astype(str).str[:3].str.upper() + "-" +
-                normalized["Description"].astype(str).str.upper().str.replace(" ", "", regex=False)
+                normalized["Description"].astype(str).str.upper().str.replace(" ", "", regex=False).str[:8]
             )
-        elif "Description" in normalized.columns:
-            normalized["StockCode"] = "SKU-" + normalized["Description"].astype(str).str.upper().str.replace(" ", "", regex=False)
         else:
-            normalized["StockCode"] = [f"SKU-{i+1:04d}" for i in range(len(normalized))]
+            normalized["StockCode"] = "SKU-" + normalized["Description"].astype(str).str.upper().str.replace(" ", "", regex=False).str[:8]
+    normalized["StockCode"] = normalized["StockCode"].fillna("SKU-0001").astype(str).str.strip().replace({"": "SKU-0001"})
             
+    # 6. Guarantee CustomerID (realistic recurring buyer IDs with ~40% repeat cohorts)
+    if "CustomerID" not in normalized.columns:
+        cust_cols = [c for c in normalized.columns if any(term in str(c).lower() for term in ["cust", "user", "buyer", "client", "account"])]
+        if cust_cols:
+            normalized["CustomerID"] = normalized[cust_cols[0]].astype(str).str.strip()
+        else:
+            np.random.seed(42)
+            n_custs = max(1, int(len(normalized) * 0.4))
+            cust_pool = [f"CUST-{i+1:04d}" for i in range(n_custs)]
+            normalized["CustomerID"] = np.random.choice(cust_pool, size=len(normalized))
+    normalized["CustomerID"] = normalized["CustomerID"].fillna("CUST-0001").astype(str).str.strip().replace({"": "CUST-0001"})
+            
+    # 7. Guarantee InvoiceDate (temporal spread across past 12 months)
     if "InvoiceDate" not in normalized.columns:
-        import numpy as np
         season_dates = {
             "Winter": pd.date_range("2023-12-01", "2024-02-28"),
             "Spring": pd.date_range("2024-03-01", "2024-05-31"),
@@ -149,12 +205,17 @@ def normalize_pandas_dataframe(
                 rnd_min = np.random.randint(0, 60)
                 gen_dates.append(pd.Timestamp(rnd_day).replace(hour=rnd_hour, minute=rnd_min).strftime("%Y-%m-%d %H:%M:%S"))
         normalized["InvoiceDate"] = gen_dates
+    else:
+        normalized["InvoiceDate"] = normalized["InvoiceDate"].fillna("2024-01-01 12:00:00").astype(str)
         
+    # 8. Guarantee Country
     if "Country" not in normalized.columns:
-        if "Location" in normalized.columns:
-            normalized["Country"] = normalized["Location"]
+        loc_cols = [c for c in normalized.columns if any(term in str(c).lower() for term in ["country", "nation", "location", "region", "state", "city", "place"])]
+        if loc_cols:
+            normalized["Country"] = normalized[loc_cols[0]].astype(str).str.strip()
         else:
-            normalized["Country"] = "Domestic"
+            normalized["Country"] = "India"
+    normalized["Country"] = normalized["Country"].fillna("India").astype(str).str.strip().replace({"": "India"})
             
     # Preserve identifiers as strings
     for id_col in ["InvoiceNo", "StockCode", "CustomerID"]:
