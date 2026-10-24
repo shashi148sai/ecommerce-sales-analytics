@@ -709,18 +709,11 @@ h4, h5 {
     box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
 }
 
-/* Completely remove Streamlit Deploy button, toolbar, and watermarks */
+/* Completely remove Streamlit Deploy button, footer, and watermarks */
 [data-testid="stAppDeployButton"],
 .stDeployButton,
 button[title*="Deploy"],
 button[aria-label*="Deploy"],
-[data-testid="stToolbarActions"],
-[data-testid="stToolbarActionButton"],
-[data-testid="stToolbar"],
-header [data-testid="stToolbar"],
-header [data-testid="stAppDeployButton"],
-header .stDeployButton,
-header button[kind="header"],
 div[class*="stDeployButton"],
 div[data-testid*="Deploy"],
 [data-testid="stDecoration"],
@@ -739,9 +732,81 @@ footer,
     padding: 0 !important;
 }
 
+/* Ensure the Sidebar Toggle / Collapse / Expand Control is always visible, prominent, and clickable */
+[data-testid="stSidebarCollapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    position: fixed !important;
+    top: 0.65rem !important;
+    left: 0.75rem !important;
+    z-index: 9999999 !important;
+    background: #1E3A8A !important;
+    color: #FFFFFF !important;
+    border: 1px solid #3B82F6 !important;
+    border-radius: 8px !important;
+    padding: 5px 9px !important;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.35) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+[data-testid="stSidebarCollapsedControl"]:hover {
+    background: #1D4ED8 !important;
+    transform: scale(1.06) !important;
+    box-shadow: 0 6px 16px rgba(30, 58, 138, 0.45) !important;
+}
+
+[data-testid="stSidebarCollapsedControl"] button {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    color: #FFFFFF !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+[data-testid="stSidebarCollapsedControl"] svg {
+    display: block !important;
+    visibility: visible !important;
+    fill: #FFFFFF !important;
+    color: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+    width: 22px !important;
+    height: 22px !important;
+}
+
 header[data-testid="stHeader"] {
     background: transparent !important;
-    height: 1.5rem !important;
+    z-index: 100 !important;
+}
+
+/* Top Navigation Bar Styling (Pills) */
+[data-testid="stPills"] {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+    background: #F8FAFC !important;
+    padding: 6px 10px !important;
+    border-radius: 12px !important;
+    border: 1px solid #E2E8F0 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+}
+
+[data-testid="stPills"] button {
+    border-radius: 8px !important;
+    font-size: 0.825rem !important;
+    font-weight: 600 !important;
+    padding: 0.35rem 0.85rem !important;
+    transition: all 0.15s ease !important;
+}
+
+[data-testid="stPills"] button[aria-selected="true"] {
+    background: #1E3A8A !important;
+    color: #FFFFFF !important;
+    border-color: #1E3A8A !important;
 }
 </style>"""
     st.markdown(css, unsafe_allow_html=True)

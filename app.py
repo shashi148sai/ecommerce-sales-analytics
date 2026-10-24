@@ -66,6 +66,37 @@ if "active_dataset_type" not in st.session_state:
     st.session_state["active_dataset_type"] = "shopping" if meta and "shopping" in str(meta.get("dataset_file", "")).lower() else ("canonical" if meta else "none")
 
 # ------------------------------------------------------------------------------
+# Navigation Configuration & Synchronized Session State
+# ------------------------------------------------------------------------------
+pages = {
+    "🏠 Home": p0.render_page,
+    "📥 Upload & Manage Data": p_upload.render_page,
+    "💼 Sales Overview": p1.render_page,
+    "📦 Product Insights": p2.render_page,
+    "👥 Customer Insights": p4.render_page,
+    "📈 Sales Trends": p3.render_page,
+    "🛡️ Data Quality & Reports": p_quality.render_page,
+    "⚙️ Settings": p_settings.render_page,
+}
+page_keys = list(pages.keys())
+
+# Ensure navigation session state is initialized
+if "nav_selection" not in st.session_state or st.session_state["nav_selection"] not in page_keys:
+    st.session_state["nav_selection"] = page_keys[0]
+
+def on_top_nav_change():
+    if "top_pills_val" in st.session_state and st.session_state["top_pills_val"]:
+        st.session_state["nav_selection"] = st.session_state["top_pills_val"]
+
+def on_side_nav_change():
+    if "side_radio_val" in st.session_state and st.session_state["side_radio_val"]:
+        st.session_state["nav_selection"] = st.session_state["side_radio_val"]
+
+# Keep both controls synchronized before widget rendering
+st.session_state["top_pills_val"] = st.session_state["nav_selection"]
+st.session_state["side_radio_val"] = st.session_state["nav_selection"]
+
+# ------------------------------------------------------------------------------
 # Sidebar Navigation & Environment Information
 # ------------------------------------------------------------------------------
 with st.sidebar:
@@ -90,34 +121,15 @@ with st.sidebar:
         
     st.divider()
     
-    # Navigation Pages (8 Sections matching requirements)
-    pages = {
-        "🏠 Home": p0.render_page,
-        "📥 Upload & Manage Data": p_upload.render_page,
-        "💼 Sales Overview": p1.render_page,
-        "📦 Product Insights": p2.render_page,
-        "👥 Customer Insights": p4.render_page,
-        "📈 Sales Trends": p3.render_page,
-        "🛡️ Data Quality & Reports": p_quality.render_page,
-        "⚙️ Settings": p_settings.render_page,
-    }
-    
-    page_keys = list(pages.keys())
-    
-    # Support programmatic navigation from buttons via session state
-    if "nav_selection" not in st.session_state or st.session_state["nav_selection"] not in page_keys:
-        st.session_state["nav_selection"] = page_keys[0]
-        
-    current_index = page_keys.index(st.session_state["nav_selection"])
-    
-    selected_page = st.radio(
+    # Navigation Pages
+    st.markdown("**Navigation Pages:**")
+    st.radio(
         "Platform Navigation",
         page_keys,
-        index=current_index,
-        key="nav_radio",
+        key="side_radio_val",
+        on_change=on_side_nav_change,
         label_visibility="collapsed"
     )
-    st.session_state["nav_selection"] = selected_page
     
     st.divider()
     
@@ -166,7 +178,36 @@ with st.sidebar:
     st.caption("SalesPulse Analytics © 2026")
 
 # ------------------------------------------------------------------------------
+# Top Navigation Bar (Always Visible - Even When Sidebar is Collapsed)
+# ------------------------------------------------------------------------------
+top_bar_container = st.container()
+with top_bar_container:
+    tb_col1, tb_col2 = st.columns([1, 4.8], vertical_alignment="center")
+    with tb_col1:
+        st.markdown(
+            "<div style='display:flex; align-items:center; gap:8px; padding-left: 2px;'>"
+            "<span style='font-size:1.35rem;'>⚡</span>"
+            "<span style='font-size:1.15rem; font-weight:800; color:#0F172A; letter-spacing:-0.02em;'>SalesPulse</span>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+    with tb_col2:
+        st.pills(
+            "Main Navigation",
+            options=page_keys,
+            key="top_pills_val",
+            on_change=on_top_nav_change,
+            label_visibility="collapsed"
+        )
+    st.markdown("<hr style='margin: 0.4rem 0 1.25rem 0; border: none; border-top: 1px solid #E2E8F0;' />", unsafe_allow_html=True)
+
+# ------------------------------------------------------------------------------
 # Main Page Body: Active View + Footer
 # ------------------------------------------------------------------------------
-pages[selected_page]()
+active_page = st.session_state.get("nav_selection", page_keys[0])
+if active_page in pages:
+    pages[active_page]()
+else:
+    pages[page_keys[0]]()
+
 render_footer()
