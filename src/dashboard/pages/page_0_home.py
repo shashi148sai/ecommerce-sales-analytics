@@ -23,15 +23,13 @@ from src.processing.pipeline import run_pipeline
 
 def render_page():
     # --------------------------------------------------------------------------
-    # Hero Section
+    # 1. Hero Section & Value Proposition
     # --------------------------------------------------------------------------
     st.title("⚡ SalesPulse Analytics")
-    st.markdown(
-        "#### Modern Enterprise Sales Intelligence & Business Analytics"
-    )
+    st.markdown("#### *Turn your e-commerce sales data into meaningful business insights.*")
     st.caption(
-        "Process, analyze, and visualize high-volume e-commerce transaction data. "
-        "Supports universal file formats, smart column auto-detection, and native Indian rupee (`₹`) localization."
+        "Modern enterprise analytics platform for processing, analyzing, and visualizing e-commerce transactions. "
+        "Supports flexible file formats, automatic schema detection, and native Indian Rupee (`₹`) localization."
     )
     
     symbol, code, rate = get_active_currency_config()
@@ -39,19 +37,34 @@ def render_page():
     kpis = load_kpis()
     
     # --------------------------------------------------------------------------
-    # Primary Call to Action Buttons
+    # 2. Three-Step Workflow Guide (Upload, Analyze, Explore)
     # --------------------------------------------------------------------------
-    st.write("")
-    cta_col1, cta_col2, cta_col3, cta_col4 = st.columns([1.2, 1.4, 1.4, 1.3])
+    with st.container(border=True):
+        st.markdown("##### 🚀 Simple 3-Step Analytics Workflow")
+        w1, w2, w3 = st.columns(3)
+        with w1:
+            st.markdown("**1. 📥 Upload**")
+            st.caption("Upload CSV, Excel, TSV, JSON, Parquet, or paste copied transaction rows.")
+        with w2:
+            st.markdown("**2. ⚡ Analyze**")
+            st.caption("Auto-detect column names, reconcile schema, and execute Spark SQL aggregations.")
+        with w3:
+            st.markdown("**3. 📊 Explore**")
+            st.caption("Explore executive sales KPIs, bestseller rankings, customer cohorts, and demand forecasts.")
+            
+    # --------------------------------------------------------------------------
+    # 3. Primary Call-to-Action Buttons
+    # --------------------------------------------------------------------------
+    cta_col1, cta_col2, cta_col3, cta_col4 = st.columns([1.3, 1.4, 1.4, 1.3])
     
     with cta_col1:
-        if st.button("🚀 Upload Dataset", type="primary", use_container_width=True):
+        if st.button("🚀 Upload Your Dataset", type="primary", use_container_width=True):
             st.session_state["nav_selection"] = "📥 Upload & Manage Data"
             st.rerun()
             
     with cta_col2:
         if st.button("🛍️ Explore Shopping Data", type="secondary", use_container_width=True, help="Load Consumer Shopping Trends dataset (3,900 consumer purchase logs)"):
-            with st.spinner("Initializing PySpark shopping dataset pipeline..."):
+            with st.spinner("Loading Consumer Shopping dataset..."):
                 shop_file = getattr(settings, "SAMPLE_SHOPPING_FILE", settings.RAW_DATA_DIR / "shopping.csv")
                 if shop_file.exists():
                     st.session_state["active_dataset_type"] = "shopping"
@@ -63,11 +76,11 @@ def render_page():
                     except Exception as e:
                         st.error(f"Failed to load shopping dataset: {str(e)}")
                 else:
-                    st.warning("Shopping dataset file not found at default location.")
+                    st.warning("Shopping dataset file not found at data/raw/shopping.csv.")
                     
     with cta_col3:
         if st.button("🛒 Explore Retail 540K", type="secondary", use_container_width=True, help="Load UCI Online Retail dataset (541,909 transactions)"):
-            with st.spinner("Initializing PySpark canonical dataset pipeline..."):
+            with st.spinner("Loading UCI Online Retail dataset..."):
                 retail_file = settings.DEFAULT_RAW_FILE
                 if retail_file.exists():
                     st.session_state["active_dataset_type"] = "canonical"
@@ -83,18 +96,18 @@ def render_page():
                     
     with cta_col4:
         st.download_button(
-            label="📥 Download Template",
+            label="📥 Download CSV Template",
             data=get_csv_template(),
             file_name="salespulse_template.csv",
             mime="text/csv",
             use_container_width=True,
-            help="Download a clean CSV template with standard headers and valid sample transactions."
+            help="Download a clean CSV template with standard headers and sample transactions."
         )
         
     st.write("")
     
     # --------------------------------------------------------------------------
-    # Active Dataset Overview / Live Metrics Snapshot
+    # 4. Active Dataset Overview / Live Metrics Snapshot
     # --------------------------------------------------------------------------
     dataset_type = st.session_state.get("active_dataset_type", "shopping" if meta and "shopping" in str(meta.get("dataset_file", "")).lower() else ("canonical" if meta else "none"))
     
@@ -103,11 +116,11 @@ def render_page():
             hdr_col, btn_col = st.columns([3, 1])
             with hdr_col:
                 if dataset_type == "shopping" or (meta and "shopping" in str(meta.get("dataset_file", "")).lower()):
-                    st.markdown("##### 🛍️ Active Dataset: **Consumer Shopping Trends (shopping.csv)**")
-                elif dataset_type == "sample":
-                    st.markdown("##### 🧪 Active Dataset: **UCI Online Retail (Validation Sample)**")
+                    st.markdown("##### 🛍️ Active Dataset: **Consumer Shopping Trends (shopping.csv)** *(Sample Data)*")
+                elif dataset_type == "sample" or dataset_type == "canonical":
+                    st.markdown("##### 🧪 Active Dataset: **UCI Online Retail (OnlineRetail.csv)** *(Sample Data)*")
                 else:
-                    st.markdown(f"##### ✅ Active Dataset: **{meta.get('dataset_file', 'OnlineRetail.csv')}**")
+                    st.markdown(f"##### 📁 Active Dataset: **{meta.get('dataset_file', 'User Uploaded Data')}** *(User Data)*")
                 st.caption(
                     f"**{format_number(meta.get('total_records_ingested', 0))}** transactions analyzed • "
                     f"Reporting Currency: **{code} ({symbol})**"
@@ -155,24 +168,25 @@ def render_page():
         with st.container(border=True):
             st.markdown("##### ℹ️ Welcome! No Dataset Loaded")
             st.write(
-                "Get started by uploading your own transactions or explore the platform using the built-in demo dataset:"
+                "No transaction dataset is currently loaded. Get started in seconds by uploading your sales data or exploring with our included sample datasets:"
             )
             sc1, sc2 = st.columns(2)
             with sc1:
-                if st.button("📁 Upload Custom Sales Data", type="primary", use_container_width=True):
+                if st.button("📁 Upload Your Dataset", type="primary", use_container_width=True):
                     st.session_state["nav_selection"] = "📥 Upload & Manage Data"
                     st.rerun()
             with sc2:
-                if st.button("⚡ Quick-Load 540K-Row Sample Data", use_container_width=True):
-                    st.session_state["active_dataset_type"] = "sample"
-                    run_pipeline(input_file_path=settings.SAMPLE_RAW_FILE)
+                if st.button("🛍️ Explore Shopping Trends Data", use_container_width=True):
+                    st.session_state["active_dataset_type"] = "shopping"
+                    st.session_state["dataset_source_currency"] = "USD"
+                    run_pipeline(input_file_path=getattr(settings, "SAMPLE_SHOPPING_FILE", settings.RAW_DATA_DIR / "shopping.csv"))
                     st.session_state["nav_selection"] = "💼 Sales Overview"
                     st.rerun()
 
     st.write("")
     
     # --------------------------------------------------------------------------
-    # Interactive Analytics Modules Directory
+    # 5. Interactive Analytics Modules Directory
     # --------------------------------------------------------------------------
     st.subheader("Explore Analytics Modules")
     
@@ -210,14 +224,14 @@ def render_page():
     with f5:
         with st.container(border=True):
             st.markdown("##### 🛡️ Data Quality & Reports")
-            st.caption("Governance audits, schema validation scores, and partitioned Lakehouse tree.")
+            st.caption("Governance audits, schema validation scores, and clean data downloads.")
             if st.button("View Data Quality", key="nav_to_quality", use_container_width=True):
                 st.session_state["nav_selection"] = "🛡️ Data Quality & Reports"
                 st.rerun()
     with f6:
         with st.container(border=True):
             st.markdown("##### ⚙️ System Settings")
-            st.caption(f"Presentation currency: **{code} ({symbol})**, reference rates, and Spark profile.")
+            st.caption(f"Presentation currency: **{code} ({symbol})**, reference rates, and preferences.")
             if st.button("View Settings", key="nav_to_settings", use_container_width=True):
                 st.session_state["nav_selection"] = "⚙️ Settings"
                 st.rerun()

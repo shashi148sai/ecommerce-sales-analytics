@@ -4,7 +4,8 @@ showErrorDetails = "stacktrace"
 
 [server]
 headless = true
-enableCORS = false
+address = "127.0.0.1"
+enableCORS = true
 enableXsrfProtection = true
 
 [browser]
