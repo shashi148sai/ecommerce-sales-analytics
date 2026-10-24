@@ -6,7 +6,7 @@
 ![Apache Spark](https://img.shields.io/badge/Apache_Spark-3.5.9-orange.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-red.svg)
 ![Cloud](https://img.shields.io/badge/AWS-Amazon_S3_(Mock_Tested)-yellow.svg)
-![Tests](https://img.shields.io/badge/Tests-39%20Passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/Tests-65%20Passed-brightgreen.svg)
 ![Cost](https://img.shields.io/badge/Cost-%E2%82%B90_Out--of--Pocket-success.svg)
 ![Locale](https://img.shields.io/badge/Locale-en--IN_%7C_Asia--Kolkata-blueviolet.svg)
 
