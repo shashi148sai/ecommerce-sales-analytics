@@ -28,6 +28,8 @@ spark-warehouse/
 # Local data files (preserve directory structure with .gitkeep)
 data/raw/*
 !data/raw/.gitkeep
+!data/raw/sample_retail.csv
+!data/raw/shopping.csv
 data/processed/*
 !data/processed/.gitkeep
 data/analytics/*
