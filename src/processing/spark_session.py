@@ -6,6 +6,7 @@ Ensures Windows path and Python executable compatibility.
 
 import os
 import sys
+import shutil
 from pyspark.sql import SparkSession
 from config import settings
 
@@ -30,7 +31,7 @@ def get_windows_short_path(path_str: str) -> str:
 
 def get_spark_session(app_name: str = None, master: str = None) -> SparkSession:
     """
-    Creates or retrieves an active SparkSession with Windows-safe environment variables.
+    Creates or retrieves an active SparkSession with Windows and Linux/EC2 cloud compatibility.
     
     Args:
         app_name: Optional name for the Spark application.
@@ -39,16 +40,25 @@ def get_spark_session(app_name: str = None, master: str = None) -> SparkSession:
     Returns:
         SparkSession instance.
     """
+    # Verify Java runtime exists before attempting Py4J gateway connection
+    if not shutil.which("java") and "JAVA_HOME" not in os.environ:
+        raise RuntimeError(
+            "Java (OpenJDK) runtime was not found on this server. PySpark requires Java 8, 11, or 17. "
+            "Please run 'sudo apt update && sudo apt install -y default-jre-headless' on your server."
+        )
+
     # Ensure Spark workers use the identical Python interpreter as the driver (Windows space-safe)
     safe_python = get_windows_short_path(sys.executable)
     os.environ["PYSPARK_PYTHON"] = safe_python
     os.environ["PYSPARK_DRIVER_PYTHON"] = safe_python
     
-    # Configure lightweight JVM memory to respect laptop RAM constraints
+    # Configure lightweight JVM memory to respect laptop and cloud VM constraints (t2.micro / t3.micro)
     builder = (
         SparkSession.builder
         .appName(app_name or settings.SPARK_APP_NAME)
         .master(master or settings.SPARK_MASTER)
+        .config("spark.driver.host", "127.0.0.1")
+        .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.memory", settings.SPARK_DRIVER_MEMORY)
         .config("spark.sql.shuffle.partitions", settings.SPARK_SQL_SHUFFLE_PARTITIONS)
         .config("spark.ui.enabled", "false")  # Avoid port conflicts in local runs

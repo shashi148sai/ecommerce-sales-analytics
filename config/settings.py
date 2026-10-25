@@ -55,7 +55,7 @@ AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", None)
 # ------------------------------------------------------------------------------
 SPARK_APP_NAME = os.getenv("SPARK_APP_NAME", "SalesPulse-Analytics")
 SPARK_MASTER = os.getenv("SPARK_MASTER", "local[2]")
-SPARK_DRIVER_MEMORY = os.getenv("SPARK_DRIVER_MEMORY", "2g")
+SPARK_DRIVER_MEMORY = os.getenv("SPARK_DRIVER_MEMORY", "1g")
 SPARK_SQL_SHUFFLE_PARTITIONS = os.getenv("SPARK_SQL_SHUFFLE_PARTITIONS", "4")
 
 # ------------------------------------------------------------------------------
