@@ -16,6 +16,7 @@ from src.dashboard.utils import (
     load_pipeline_metadata,
     load_data_quality_report,
     load_kpis,
+    clear_analytics_cache,
     format_number,
     format_currency,
     format_percent,
@@ -515,6 +516,11 @@ def render_page():
                     st.write("4️⃣ Persisting analytical summaries and generating data quality reports...")
                     time.sleep(0.4)
                     
+                    # Invalidate file-based cached loaders immediately so Step 4 and subsequent pages read fresh outputs
+                    clear_analytics_cache()
+                    st.session_state["latest_pipeline_result"] = pipeline_res
+                    st.session_state["pipeline_error"] = None
+                    
                     status_box.update(label="✅ Analytics Pipeline Completed Successfully!", state="complete", expanded=False)
                     st.session_state["is_processing"] = False
                     st.session_state["wizard_step"] = 4
@@ -522,6 +528,7 @@ def render_page():
                 except Exception as e:
                     status_box.update(label="❌ Pipeline Execution Failed", state="error", expanded=True)
                     st.error(f"Error during analytics processing: {str(e)}")
+                    st.session_state["pipeline_error"] = str(e)
                     st.session_state["is_processing"] = False
                     
         # Navigation
@@ -541,21 +548,42 @@ def render_page():
         quality_report = load_data_quality_report()
         kpis = load_kpis()
         
-        if meta and kpis:
+        # Dual-layer safety: Fall back to session state result if file reads are delayed or empty
+        cached_run = st.session_state.get("latest_pipeline_result", {})
+        if not meta and isinstance(cached_run, dict) and "metadata" in cached_run:
+            meta = cached_run.get("metadata", {})
+        if not kpis and isinstance(cached_run, dict) and "kpis" in cached_run:
+            kpis = cached_run.get("kpis", {})
+
+        pipeline_err = st.session_state.get("pipeline_error")
+        if pipeline_err and not (meta and kpis):
+            st.error(f"❌ **Analytics Pipeline Execution Failed:** {pipeline_err}")
+            st.info("Please return to Step 3, verify your source file / column mapping, and click Analyze My Data again.")
+        elif meta and kpis:
             st.success("🎉 **Data Processing Complete!** Your dataset has been transformed and aggregated.")
             
+            total_ingested = meta.get("total_records_ingested", 0)
+            clean_sales = meta.get("clean_sales_records_count", meta.get("clean_sales_records", 0))
+            returns_count = meta.get("returns_records_count", meta.get("returns_and_cancellations", 0))
+            excluded_count = meta.get("excluded_records_count", 0)
+            gross_rev = kpis.get("gross_revenue", meta.get("gross_sales", 0.0))
+            net_rev = kpis.get("net_revenue", meta.get("net_sales", 0.0))
+            timings = meta.get("timings_seconds", {})
+            total_duration = timings.get("total_pipeline_duration", 0.0) if isinstance(timings, dict) else 0.0
+            throughput = meta.get("throughput_rows_per_second", 0.0)
+
             # KPI Results Row
             r1, r2, r3, r4, r5 = st.columns(5)
             with r1:
-                render_kpi_card("Total Ingested", format_number(meta.get("total_records_ingested")), subtitle="Transaction lines")
+                render_kpi_card("Total Ingested", format_number(total_ingested), subtitle="Transaction lines")
             with r2:
-                render_kpi_card("Accepted Sales", format_number(meta.get("clean_sales_records_count")), subtitle="Valid revenue lines")
+                render_kpi_card("Accepted Sales", format_number(clean_sales), subtitle="Valid revenue lines")
             with r3:
-                render_kpi_card("Gross Revenue", format_currency(kpis.get("gross_revenue"), compact=True))
+                render_kpi_card("Gross Revenue", format_currency(gross_rev, compact=True))
             with r4:
-                render_kpi_card("Net Revenue", format_currency(kpis.get("net_revenue"), compact=True))
+                render_kpi_card("Net Revenue", format_currency(net_rev, compact=True))
             with r5:
-                render_kpi_card("Execution Time", f"{meta.get('timings_seconds', {}).get('total_pipeline_duration', 0.0):.2f}s", subtitle=f"{meta.get('throughput_rows_per_second', 0):,.1f} rows/s")
+                render_kpi_card("Execution Time", f"{total_duration:.2f}s", subtitle=f"{throughput:,.1f} rows/s")
                 
             st.divider()
             
@@ -573,10 +601,10 @@ def render_page():
             # Record Accounting & Exclusion Audit Table
             st.markdown("##### 🛡️ Record Accounting & Quality Audit")
             rec_accounting = [
-                {"Category": "Total Input Lines", "Count": format_number(meta.get("total_records_ingested")), "Status": "Ingested", "Notes": "Raw records parsed from selected source"},
-                {"Category": "Accepted Commercial Sales", "Count": format_number(meta.get("clean_sales_records_count")), "Status": "Included in Analytics", "Notes": "Passed all business validations"},
-                {"Category": "Return / Cancellation Rows", "Count": format_number(meta.get("returns_records_count")), "Status": "Segregated", "Notes": "Invoices starting with 'C' or negative quantities"},
-                {"Category": "Excluded Incomplete Records", "Count": format_number(meta.get("excluded_records_count")), "Status": "Excluded", "Notes": "Missing SKU or invalid zero/negative unit prices"}
+                {"Category": "Total Input Lines", "Count": format_number(total_ingested), "Status": "Ingested", "Notes": "Raw records parsed from selected source"},
+                {"Category": "Accepted Commercial Sales", "Count": format_number(clean_sales), "Status": "Included in Analytics", "Notes": "Passed all business validations"},
+                {"Category": "Return / Cancellation Rows", "Count": format_number(returns_count), "Status": "Segregated", "Notes": "Invoices starting with 'C' or negative quantities"},
+                {"Category": "Excluded Records", "Count": format_number(excluded_count), "Status": "Excluded", "Notes": "Deduplicated rows, non-commercial lines, missing SKU, or zero/negative unit prices"}
             ]
             st.dataframe(pd.DataFrame(rec_accounting), use_container_width=True)
             
@@ -629,6 +657,8 @@ def render_page():
             st.session_state["wizard_step"] = 1
             st.session_state["imported_df"] = None
             st.session_state["imported_meta"] = {}
+            st.session_state["latest_pipeline_result"] = None
+            st.session_state["pipeline_error"] = None
             st.rerun()
 
 

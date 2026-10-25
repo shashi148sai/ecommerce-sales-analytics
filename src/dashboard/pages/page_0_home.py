@@ -16,7 +16,8 @@ from src.dashboard.utils import (
     get_csv_template,
     format_number,
     format_currency,
-    get_active_currency_config
+    get_active_currency_config,
+    clear_analytics_cache
 )
 from src.processing.pipeline import run_pipeline
 
@@ -92,6 +93,7 @@ def render_page():
                     st.session_state["dataset_source_currency"] = "USD"
                     shop_path = getattr(settings, "SAMPLE_SHOPPING_FILE", settings.RAW_DATA_DIR / "shopping.csv")
                     run_pipeline(input_file_path=shop_path)
+                    clear_analytics_cache()
                     st.session_state["nav_selection"] = "💼 Sales Overview"
                     st.rerun()
 
@@ -209,6 +211,7 @@ def render_page():
                     st.session_state["dataset_source_currency"] = "USD"
                     try:
                         run_pipeline(input_file_path=shop_file)
+                        clear_analytics_cache()
                         st.session_state["nav_selection"] = "💼 Sales Overview"
                         st.rerun()
                     except Exception as e:
@@ -221,6 +224,7 @@ def render_page():
                     st.session_state["dataset_source_currency"] = "GBP"
                     try:
                         run_pipeline(input_file_path=retail_file)
+                        clear_analytics_cache()
                         st.session_state["nav_selection"] = "💼 Sales Overview"
                         st.rerun()
                     except Exception as e:

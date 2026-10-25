@@ -377,30 +377,49 @@ def render_kpi_card(
 
 
 # ------------------------------------------------------------------------------
-# Cached Data Loaders
+# Cached Data Loaders (with automatic mtime detection & cache invalidation)
 # ------------------------------------------------------------------------------
+def _get_path_mtime(path: Path) -> float:
+    """Returns the modification timestamp of a file, or 0.0 if not found/accessible."""
+    try:
+        return path.stat().st_mtime if path.exists() else 0.0
+    except (OSError, ValueError):
+        return 0.0
+
+
 @st.cache_data(show_spinner=False)
-def load_kpis() -> Dict[str, Any]:
-    """Loads overall KPIs from JSON."""
+def _load_kpis_cached(mtime: float) -> Dict[str, Any]:
     path = settings.ANALYTICS_DATA_DIR / "kpis_summary.json"
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
+def load_kpis() -> Dict[str, Any]:
+    """Loads overall KPIs from JSON."""
+    path = settings.ANALYTICS_DATA_DIR / "kpis_summary.json"
+    return _load_kpis_cached(_get_path_mtime(path))
+
+load_kpis.clear = _load_kpis_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_monthly_trends() -> pd.DataFrame:
-    """Loads monthly trends DataFrame."""
+def _load_monthly_trends_cached(mtime: float) -> pd.DataFrame:
     path = settings.ANALYTICS_DATA_DIR / "monthly_sales_trends.csv"
     if path.exists():
         return pd.read_csv(path)
     return pd.DataFrame()
 
+def load_monthly_trends() -> pd.DataFrame:
+    """Loads monthly trends DataFrame."""
+    path = settings.ANALYTICS_DATA_DIR / "monthly_sales_trends.csv"
+    return _load_monthly_trends_cached(_get_path_mtime(path))
+
+load_monthly_trends.clear = _load_monthly_trends_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_daily_trends() -> pd.DataFrame:
-    """Loads daily trends DataFrame."""
+def _load_daily_trends_cached(mtime: float) -> pd.DataFrame:
     path = settings.ANALYTICS_DATA_DIR / "daily_sales_trends.csv"
     if path.exists():
         df = pd.read_csv(path)
@@ -412,67 +431,109 @@ def load_daily_trends() -> pd.DataFrame:
         return df
     return pd.DataFrame()
 
+def load_daily_trends() -> pd.DataFrame:
+    """Loads daily trends DataFrame."""
+    path = settings.ANALYTICS_DATA_DIR / "daily_sales_trends.csv"
+    return _load_daily_trends_cached(_get_path_mtime(path))
+
+load_daily_trends.clear = _load_daily_trends_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_top_products_revenue() -> pd.DataFrame:
-    """Loads top products by revenue DataFrame."""
+def _load_top_products_revenue_cached(mtime: float) -> pd.DataFrame:
     path = settings.ANALYTICS_DATA_DIR / "top_products_by_revenue.csv"
     if path.exists():
         return pd.read_csv(path)
     return pd.DataFrame()
 
+def load_top_products_revenue() -> pd.DataFrame:
+    """Loads top products by revenue DataFrame."""
+    path = settings.ANALYTICS_DATA_DIR / "top_products_by_revenue.csv"
+    return _load_top_products_revenue_cached(_get_path_mtime(path))
+
+load_top_products_revenue.clear = _load_top_products_revenue_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_top_products_quantity() -> pd.DataFrame:
-    """Loads top products by volume DataFrame."""
+def _load_top_products_quantity_cached(mtime: float) -> pd.DataFrame:
     path = settings.ANALYTICS_DATA_DIR / "top_products_by_quantity.csv"
     if path.exists():
         return pd.read_csv(path)
     return pd.DataFrame()
 
+def load_top_products_quantity() -> pd.DataFrame:
+    """Loads top products by volume DataFrame."""
+    path = settings.ANALYTICS_DATA_DIR / "top_products_by_quantity.csv"
+    return _load_top_products_quantity_cached(_get_path_mtime(path))
+
+load_top_products_quantity.clear = _load_top_products_quantity_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_country_revenue() -> pd.DataFrame:
-    """Loads geographic sales performance DataFrame."""
+def _load_country_revenue_cached(mtime: float) -> pd.DataFrame:
     path = settings.ANALYTICS_DATA_DIR / "country_wise_revenue.csv"
     if path.exists():
         return pd.read_csv(path)
     return pd.DataFrame()
 
+def load_country_revenue() -> pd.DataFrame:
+    """Loads geographic sales performance DataFrame."""
+    path = settings.ANALYTICS_DATA_DIR / "country_wise_revenue.csv"
+    return _load_country_revenue_cached(_get_path_mtime(path))
+
+load_country_revenue.clear = _load_country_revenue_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_repeat_customers() -> Dict[str, Any]:
-    """Loads repeat customer statistics from JSON."""
+def _load_repeat_customers_cached(mtime: float) -> Dict[str, Any]:
     path = settings.ANALYTICS_DATA_DIR / "repeat_customer_summary.json"
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
+def load_repeat_customers() -> Dict[str, Any]:
+    """Loads repeat customer statistics from JSON."""
+    path = settings.ANALYTICS_DATA_DIR / "repeat_customer_summary.json"
+    return _load_repeat_customers_cached(_get_path_mtime(path))
+
+load_repeat_customers.clear = _load_repeat_customers_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_data_quality_report() -> Dict[str, Any]:
-    """Loads data quality audit report from JSON."""
+def _load_data_quality_report_cached(mtime: float) -> Dict[str, Any]:
     path = settings.REPORTS_DIR / "data_quality_report.json"
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
+def load_data_quality_report() -> Dict[str, Any]:
+    """Loads data quality audit report from JSON."""
+    path = settings.REPORTS_DIR / "data_quality_report.json"
+    return _load_data_quality_report_cached(_get_path_mtime(path))
+
+load_data_quality_report.clear = _load_data_quality_report_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_pipeline_metadata() -> Dict[str, Any]:
-    """Loads the latest pipeline execution metadata."""
+def _load_pipeline_metadata_cached(mtime: float) -> Dict[str, Any]:
     path = settings.METADATA_DIR / "latest_pipeline_run.json"
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
+def load_pipeline_metadata() -> Dict[str, Any]:
+    """Loads the latest pipeline execution metadata."""
+    path = settings.METADATA_DIR / "latest_pipeline_run.json"
+    return _load_pipeline_metadata_cached(_get_path_mtime(path))
+
+load_pipeline_metadata.clear = _load_pipeline_metadata_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_temporal_patterns() -> Dict[str, pd.DataFrame]:
-    """Loads day of week and hourly distribution DataFrames."""
+def _load_temporal_patterns_cached(mtime1: float, mtime2: float) -> Dict[str, pd.DataFrame]:
     dow_path = settings.ANALYTICS_DATA_DIR / "day_of_week_sales.csv"
     hod_path = settings.ANALYTICS_DATA_DIR / "hour_of_day_sales.csv"
     return {
@@ -480,10 +541,17 @@ def load_temporal_patterns() -> Dict[str, pd.DataFrame]:
         "hour_of_day": pd.read_csv(hod_path) if hod_path.exists() else pd.DataFrame()
     }
 
+def load_temporal_patterns() -> Dict[str, pd.DataFrame]:
+    """Loads day of week and hourly distribution DataFrames."""
+    dow_path = settings.ANALYTICS_DATA_DIR / "day_of_week_sales.csv"
+    hod_path = settings.ANALYTICS_DATA_DIR / "hour_of_day_sales.csv"
+    return _load_temporal_patterns_cached(_get_path_mtime(dow_path), _get_path_mtime(hod_path))
+
+load_temporal_patterns.clear = _load_temporal_patterns_cached.clear
+
 
 @st.cache_data(show_spinner=False)
-def load_cleaned_sales_sample(limit: int = 10000) -> pd.DataFrame:
-    """Loads a slice of cleaned sales for interactive filtering and RFM modeling."""
+def _load_cleaned_sales_sample_cached(mtime: float, limit: int = 10000) -> pd.DataFrame:
     path = settings.PROCESSED_DATA_DIR / "cleaned_sales.parquet"
     if path.exists():
         return pd.read_parquet(path)
@@ -491,6 +559,44 @@ def load_cleaned_sales_sample(limit: int = 10000) -> pd.DataFrame:
     if csv_path.exists():
         return pd.read_csv(csv_path)
     return pd.DataFrame()
+
+def load_cleaned_sales_sample(limit: int = 10000) -> pd.DataFrame:
+    """Loads a slice of cleaned sales for interactive filtering and RFM modeling."""
+    p1 = settings.PROCESSED_DATA_DIR / "cleaned_sales.parquet"
+    p2 = settings.PROCESSED_DATA_DIR / "cleaned_sales.csv"
+    mtime = max(_get_path_mtime(p1), _get_path_mtime(p2))
+    return _load_cleaned_sales_sample_cached(mtime, limit=limit)
+
+load_cleaned_sales_sample.clear = _load_cleaned_sales_sample_cached.clear
+
+
+def clear_analytics_cache() -> None:
+    """
+    Invalidates all cached analytical loaders, metadata, and dataframes in Streamlit cache.
+    Must be called immediately after pipeline execution or dataset switching so that
+    subsequent page renders immediately load the newly written files from disk.
+    """
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    for loader in [
+        _load_kpis_cached,
+        _load_monthly_trends_cached,
+        _load_daily_trends_cached,
+        _load_top_products_revenue_cached,
+        _load_top_products_quantity_cached,
+        _load_country_revenue_cached,
+        _load_repeat_customers_cached,
+        _load_data_quality_report_cached,
+        _load_pipeline_metadata_cached,
+        _load_temporal_patterns_cached,
+        _load_cleaned_sales_sample_cached
+    ]:
+        try:
+            loader.clear()
+        except Exception:
+            pass
 
 
 # ------------------------------------------------------------------------------

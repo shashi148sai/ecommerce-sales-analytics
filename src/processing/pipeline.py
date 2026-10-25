@@ -129,11 +129,24 @@ def run_pipeline(
     throughput = round(raw_count / total_elapsed, 1) if total_elapsed > 0 else 0.0
     
     # Step 5: Metadata tracking
+    eligible_sales = trans_summary["eligible_sales_records"]
+    returns_recs = trans_summary["returns_and_cancellations_records"]
+    excluded_recs = raw_count - eligible_sales - returns_recs
+    if excluded_recs < 0:
+        raise ValueError(
+            f"Inconsistent record accounting in analytics pipeline: raw_count ({raw_count}) "
+            f"is less than clean sales ({eligible_sales}) + returns ({returns_recs}). "
+            f"Calculated excluded records: {excluded_recs}."
+        )
+
     run_metadata = {
         "dataset_file": str(file_path.name),
         "total_records_ingested": raw_count,
-        "clean_sales_records": trans_summary["eligible_sales_records"],
-        "returns_and_cancellations": trans_summary["returns_and_cancellations_records"],
+        "clean_sales_records": eligible_sales,
+        "clean_sales_records_count": eligible_sales,
+        "returns_and_cancellations": returns_recs,
+        "returns_records_count": returns_recs,
+        "excluded_records_count": excluded_recs,
         "timings_seconds": {
             "ingestion": ingest_time,
             "data_quality_audit": audit_time,

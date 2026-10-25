@@ -6,7 +6,7 @@ Clean, user-centric preferences for display currency, exchange rates, and quick 
 import streamlit as st
 import json
 from config import settings
-from src.dashboard.utils import get_active_currency_config, load_kpis
+from src.dashboard.utils import get_active_currency_config, load_kpis, clear_analytics_cache
 from src.processing.pipeline import run_pipeline
 
 
@@ -115,6 +115,7 @@ def render_page():
                             st.session_state["active_dataset_type"] = "shopping"
                             st.session_state["dataset_source_currency"] = "USD"
                             run_pipeline(input_file_path=shop_file)
+                            clear_analytics_cache()
                             st.session_state["nav_selection"] = "💼 Sales Overview"
                             st.rerun()
                     else:
@@ -127,6 +128,7 @@ def render_page():
                             st.session_state["active_dataset_type"] = "canonical"
                             st.session_state["dataset_source_currency"] = "GBP"
                             run_pipeline(input_file_path=retail_file)
+                            clear_analytics_cache()
                             st.session_state["nav_selection"] = "💼 Sales Overview"
                             st.rerun()
                     else:
@@ -138,7 +140,7 @@ def render_page():
             m_col1, m_col2, m_col3 = st.columns(3)
             with m_col1:
                 if st.button("🔄 Clear Cache & Reload", use_container_width=True):
-                    st.cache_data.clear()
+                    clear_analytics_cache()
                     st.success("Cache cleared! Reloading...")
                     st.rerun()
             with m_col2:
